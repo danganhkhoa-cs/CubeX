@@ -2,13 +2,13 @@ import { Response, Request, NextFunction } from "express";
 import { supabase } from "../config/supabase";
 import { sendServerError } from "../utils/sendServerError";
 
-export interface AuthResponse extends Response {
+export interface AuthRequest extends Request {
 	user?: any;
 }
 
 export async function requireAuth(
-	req: Request,
-	res: AuthResponse,
+	req: AuthRequest,
+	res: Response,
 	next: NextFunction,
 ): Promise<void> {
 	try {
@@ -30,7 +30,7 @@ export async function requireAuth(
 			return;
 		}
 
-		res.user = data.user;
+		req.user = data.user;
 		next();
 	} catch (e) {
 		console.error("Auth middleware error:", e);

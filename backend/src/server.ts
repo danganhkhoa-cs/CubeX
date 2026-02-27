@@ -4,11 +4,12 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 
 import { authRouter } from "./routes/authRoutes";
+import { walletRouter } from "./routes/walletRoute";
 
 const app = express();
 const PORT = process.env.PORT || 8000;
 app.use(cors());
-app.use(cookieParser())
+app.use(cookieParser());
 app.use(express.json());
 app.get("/api/health", (req, res) => {
 	res.json({
@@ -17,6 +18,7 @@ app.get("/api/health", (req, res) => {
 });
 
 app.use("/api/auth", authRouter);
+app.use("/api/wallet", walletRouter);
 
 app
 	.listen(PORT, () => {
