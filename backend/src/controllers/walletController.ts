@@ -11,7 +11,8 @@ export async function getBalance(
 		const { data, error } = await supabase
 			.from("wallets")
 			.select("balance")
-			.eq("user_id", req.user.id);
+			.eq("user_id", req.user.id)
+			.single();
 
 		if (error) {
 			res.status(400).json({
@@ -23,7 +24,7 @@ export async function getBalance(
 
 		res.status(200).json({
 			success: true,
-			balance: data[0].balance,
+			balance: data.balance,
 		});
 	} catch (e) {
 		console.error("There is problem when getting balance:", e);

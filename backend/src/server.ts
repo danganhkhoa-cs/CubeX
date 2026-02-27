@@ -4,7 +4,8 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 
 import { authRouter } from "./routes/authRoutes";
-import { walletRouter } from "./routes/walletRoute";
+import { walletRouter } from "./routes/walletRoutes";
+import { productRouter } from "./routes/productRoutes";
 
 const app = express();
 const PORT = process.env.PORT || 8000;
@@ -19,6 +20,7 @@ app.get("/api/health", (req, res) => {
 
 app.use("/api/auth", authRouter);
 app.use("/api/wallet", walletRouter);
+app.use("/api/products", productRouter);
 
 app
 	.listen(PORT, () => {
