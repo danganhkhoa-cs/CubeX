@@ -2,6 +2,7 @@ import { Response } from "express";
 import { AuthRequest } from "../middlewares/authMiddleware";
 import { supabase } from "../config/supabase";
 import { sendServerError } from "../utils/sendServerError";
+import { createTransaction } from "../postgres/createTransaction";
 
 export async function getBalance(
 	req: AuthRequest,
@@ -11,7 +12,7 @@ export async function getBalance(
 		const { data, error } = await supabase
 			.from("wallets")
 			.select("balance")
-			.eq("user_id", req.user.id)
+			.eq("id", req.user.id)
 			.single();
 
 		if (error) {
@@ -35,18 +36,14 @@ export async function getBalance(
 export async function topUp(req: AuthRequest, res: Response): Promise<void> {
 	try {
 		const { amount } = req.body;
-		if (!amount || amount <= 0) {
-			res.status(400).json({
-				success: false,
-				message: "Invalid amount",
-			});
-			return;
-		}
 
-		const { data, error } = await supabase.rpc("update_balance", {
-			p_user_id: req.user.id,
-			amount: amount,
-		});
+		// ZOD VALIDATION
+
+		const { data, error } = await createTransaction(
+			req.user.id,
+			amount,
+			"deposit",
+		);
 		if (error) {
 			res.status(400).json({
 				success: false,
