@@ -1,10 +1,7 @@
-import { Response, Request, NextFunction } from "express";
-import { supabase } from "../config/supabase";
+import { Response, NextFunction } from "express";
+import { createUserClient } from "../config/supabase";
 import { sendServerError } from "../utils/sendServerError";
-
-export interface AuthRequest extends Request {
-	user?: any;
-}
+import { AuthRequest } from "../types/authrequest";
 
 export async function requireAuth(
 	req: AuthRequest,
@@ -21,7 +18,9 @@ export async function requireAuth(
 			return;
 		}
 
-		const { data, error } = await supabase.auth.getUser(token);
+		const supabase = createUserClient(token);
+
+		const { data, error } = await supabase.auth.getUser();
 		if (error) {
 			res.status(401).json({
 				success: false,
@@ -31,6 +30,7 @@ export async function requireAuth(
 		}
 
 		req.user = data.user;
+		req.supabase = supabase;
 		next();
 	} catch (e) {
 		console.error("Auth middleware error:", e);

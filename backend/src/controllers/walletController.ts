@@ -1,15 +1,13 @@
 import { Response } from "express";
-import { AuthRequest } from "../middlewares/authMiddleware";
-import { supabase } from "../config/supabase";
+import { AuthRequest } from "../types/authrequest";
 import { sendServerError } from "../utils/sendServerError";
-import { createTransaction } from "../postgres/createTransaction";
 
 export async function getBalance(
 	req: AuthRequest,
 	res: Response,
 ): Promise<void> {
 	try {
-		const { data, error } = await supabase
+		const { data, error } = await req.supabase
 			.from("wallets")
 			.select("balance")
 			.eq("id", req.user.id)
@@ -39,22 +37,23 @@ export async function topUp(req: AuthRequest, res: Response): Promise<void> {
 
 		// ZOD VALIDATION
 
-		const { data, error } = await createTransaction(
-			req.user.id,
-			amount,
-			"deposit",
-		);
+		const { data, error } = await req.supabase.rpc("topup", {
+			p_amount: amount,
+		});
 		if (error) {
 			res.status(400).json({
 				success: false,
-				message: "Invalid amount",
+				message: error.message,
 			});
 			return;
 		}
 
 		res.status(200).json({
 			success: true,
-			new_balance: data,
+			transaction: data[0],
 		});
-	} catch (e) {}
+	} catch (e) {
+		console.error("Top up error", e);
+		sendServerError(res);
+	}
 }

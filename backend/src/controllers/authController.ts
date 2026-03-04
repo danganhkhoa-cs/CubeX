@@ -1,4 +1,4 @@
-import { supabase } from "../config/supabase";
+import { supabaseAnon, supabaseService } from "../config/supabase";
 import { Request, Response } from "express";
 import { sendServerError } from "../utils/sendServerError";
 
@@ -9,7 +9,7 @@ export async function signUp(req: Request, res: Response): Promise<void> {
 
 		// ZOD VALIDATION
 
-		const { data, error } = await supabase.auth.signUp({
+		const { data, error } = await supabaseAnon.auth.signUp({
 			email: email,
 			password: password,
 			options: {
@@ -45,7 +45,7 @@ export async function signIn(req: Request, res: Response): Promise<void> {
 
 		// ZOD VALIDATION
 
-		const { data, error } = await supabase.auth.signInWithPassword({
+		const { data, error } = await supabaseAnon.auth.signInWithPassword({
 			email: email,
 			password: password,
 		});
@@ -81,23 +81,25 @@ export async function signIn(req: Request, res: Response): Promise<void> {
 // Đăng xuất tài khoản
 export async function signOut(req: Request, res: Response): Promise<void> {
 	try {
-		const token = req.cookies.access_token;
-		if (!token) {
-			res.status(400).json({
-				success: false,
-				message: "There is no session to signout",
-			});
-			return;
-		}
+		// ADMIN REVOKE
 
-		const { error } = await supabase.auth.admin.signOut(token, "global");
-		if (error) {
-			res.status(400).json({
-				success: false,
-				message: error.message,
-			});
-			return;
-		}
+		// const token = req.cookies.access_token;
+		// if (!token) {
+		// 	res.status(400).json({
+		// 		success: false,
+		// 		message: "There is no session to signout",
+		// 	});
+		// 	return;
+		// }
+
+		// const { error } = await supabaseService.auth.admin.signOut(token, "global");
+		// if (error) {
+		// 	res.status(400).json({
+		// 		success: false,
+		// 		message: error.message,
+		// 	});
+		// 	return;
+		// }
 
 		// Xóa cookies
 		res.clearCookie("access_token");

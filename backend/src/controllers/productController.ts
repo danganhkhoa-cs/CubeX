@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { supabase } from "../config/supabase";
+import { supabaseAnon } from "../config/supabase";
 import { sendServerError } from "../utils/sendServerError";
 
 export async function getAllProducts(
@@ -7,7 +7,7 @@ export async function getAllProducts(
 	res: Response,
 ): Promise<void> {
 	try {
-		const { data, error } = await supabase.from("products").select(
+		const { data, error } = await supabaseAnon.from("products").select(
 			`
                 id, seller_id, is_sold, title, description, price, images, specs,
                 brand:brands (*),
@@ -39,7 +39,7 @@ export async function getProductById(
 	try {
 		const { id } = req.params;
 
-		const { data, error } = await supabase
+		const { data, error } = await supabaseAnon
 			.from("products")
 			.select(
 				`
