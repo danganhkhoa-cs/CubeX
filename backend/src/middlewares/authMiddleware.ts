@@ -1,7 +1,7 @@
 import { Response, NextFunction } from "express";
-import { createUserClient } from "../config/supabase";
 import { sendServerError } from "../utils/sendServerError";
 import { AuthRequest } from "../types/authrequest";
+import { supabase } from "../config/supabase";
 
 export async function requireAuth(
 	req: AuthRequest,
@@ -18,9 +18,7 @@ export async function requireAuth(
 			return;
 		}
 
-		const supabase = createUserClient(token);
-
-		const { data, error } = await supabase.auth.getUser();
+		const { data, error } = await supabase.auth.getUser(token);
 		if (error) {
 			res.status(401).json({
 				success: false,
@@ -30,7 +28,35 @@ export async function requireAuth(
 		}
 
 		req.user = data.user;
-		req.supabase = supabase;
+		next();
+	} catch (e) {
+		console.error("Auth middleware error:", e);
+		sendServerError(res);
+	}
+}
+
+export async function optionalAuth(
+	req: AuthRequest,
+	res: Response,
+	next: NextFunction,
+): Promise<void> {
+	try {
+		const token = req.cookies.access_token;
+		if (!token) {
+			next();
+			return;
+		}
+
+		const { data, error } = await supabase.auth.getUser(token);
+		if (error) {
+			res.status(401).json({
+				success: false,
+				message: "Access is denied: The session is expired",
+			});
+			return;
+		}
+
+		req.user = data.user;
 		next();
 	} catch (e) {
 		console.error("Auth middleware error:", e);

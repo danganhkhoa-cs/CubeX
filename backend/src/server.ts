@@ -10,7 +10,14 @@ import { orderRouter } from "./routes/orderRoutes";
 
 const app = express();
 const PORT = process.env.PORT || 8000;
-app.use(cors());
+app.use(
+	cors({
+		origin:
+			process.env.NODE_ENV === "development" ? "*" : process.env.FRONTEND_URL,
+		credentials: true,
+		methods: ["GET", "POST", "PATCH", "DELETE"],
+	}),
+);
 app.use(cookieParser());
 app.use(express.json());
 app.get("/api/health", (req, res) => {

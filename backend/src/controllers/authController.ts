@@ -1,4 +1,4 @@
-import { supabaseAnon, supabaseService } from "../config/supabase";
+import { supabase } from "../config/supabase";
 import { Request, Response } from "express";
 import { sendServerError } from "../utils/sendServerError";
 
@@ -9,7 +9,7 @@ export async function signUp(req: Request, res: Response): Promise<void> {
 
 		// ZOD VALIDATION
 
-		const { data, error } = await supabaseAnon.auth.signUp({
+		const { data, error } = await supabase.auth.signUp({
 			email: email,
 			password: password,
 			options: {
@@ -45,7 +45,7 @@ export async function signIn(req: Request, res: Response): Promise<void> {
 
 		// ZOD VALIDATION
 
-		const { data, error } = await supabaseAnon.auth.signInWithPassword({
+		const { data, error } = await supabase.auth.signInWithPassword({
 			email: email,
 			password: password,
 		});

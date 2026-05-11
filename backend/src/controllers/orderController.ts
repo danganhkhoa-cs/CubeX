@@ -1,7 +1,7 @@
 import { Response } from "express";
 import { AuthRequest } from "../types/authrequest";
 import { sendServerError } from "../utils/sendServerError";
-import { ShippingInfo } from "../types/shippingInfo";
+import { supabase } from "../config/supabase";
 
 export async function createOrder(
 	req: AuthRequest,
@@ -21,7 +21,7 @@ export async function createOrder(
 
 		// ZOD VALIDATION
 
-		const shipping_info: ShippingInfo = {
+		const shipping_info = {
 			name: shipping_name,
 			phone: shipping_phone,
 			street: shipping_street,
@@ -30,8 +30,9 @@ export async function createOrder(
 			note: shipping_note,
 		};
 
-		const { data, error } = await req.supabase.rpc("purchase_product", {
+		const { data, error } = await supabase.rpc("purchase_product", {
 			p_product_id: product_id,
+			p_buyer_id: buyer_id,
 			p_shipping_info: shipping_info,
 		});
 
@@ -43,9 +44,9 @@ export async function createOrder(
 			return;
 		}
 
-		res.status(200).json({
+		res.status(201).json({
 			success: true,
-			order_id: data,
+			tracking_id: data,
 		});
 	} catch (e) {
 		console.error("Create order error:", e);
@@ -62,7 +63,7 @@ export async function getOrderHistory(
 		const user_id = req.user.id;
 
 		if (role === "buyer") {
-			const { data, error } = await req.supabase
+			const { data, error } = await supabase
 				.from("orders")
 				.select(
 					`
@@ -93,7 +94,7 @@ export async function getOrderHistory(
 		}
 
 		if (role === "seller") {
-			const { data, error } = await req.supabase
+			const { data, error } = await supabase
 				.from("orders")
 				.select(
 					`
@@ -133,16 +134,16 @@ export async function getOrderById(
 	res: Response,
 ): Promise<void> {
 	try {
-		const { id } = req.params;
+		const { tracking_id } = req.params;
+		const user_id = req.user.id;
 
-		const { data, error } = await req.supabase
-			.from("orders")
-			.select()
-			.eq("id", id)
-			.single();
+		const { data, error } = await supabase.rpc("get_order_by_tracking_id", {
+			p_tracking_id: tracking_id,
+			p_user_id: user_id,
+		});
 
 		if (error) {
-			res.status(400).json({
+			res.status(404).json({
 				success: false,
 				message: error.message,
 			});
@@ -155,6 +156,39 @@ export async function getOrderById(
 		});
 	} catch (e) {
 		console.error("Get order by id error:", e);
+		sendServerError(res);
+	}
+}
+
+export async function updateOrderStatus(
+	req: AuthRequest,
+	res: Response,
+): Promise<void> {
+	try {
+		const { tracking_id } = req.params;
+		const { status } = req.body;
+		const user_id = req.user.id;
+
+		const { data, error } = await supabase.rpc("update_order_status", {
+			p_user_id: user_id,
+			p_tracking_id: tracking_id,
+			p_status: status,
+		});
+
+		if (error) {
+			res.status(400).json({
+				success: false,
+				message: error.message,
+			});
+			return;
+		}
+
+		res.status(200).json({
+			success: true,
+			order: data[0],
+		});
+	} catch (e) {
+		console.error("Update status error:", e);
 		sendServerError(res);
 	}
 }
