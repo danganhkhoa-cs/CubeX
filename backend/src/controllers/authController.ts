@@ -7,7 +7,7 @@ export async function signUp(req: Request, res: Response): Promise<void> {
 	try {
 		const { email, password, username, full_name } = req.body;
 
-		// ZOD VALIDATION
+		// TODO: ZOD VALIDATION
 
 		const { data, error } = await supabase.auth.signUp({
 			email: email,
@@ -43,7 +43,7 @@ export async function signIn(req: Request, res: Response): Promise<void> {
 	try {
 		const { email, password } = req.body;
 
-		// ZOD VALIDATION
+		// TODO: ZOD VALIDATION
 
 		const { data, error } = await supabase.auth.signInWithPassword({
 			email: email,

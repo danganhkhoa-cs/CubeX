@@ -91,7 +91,7 @@ export async function createProduct(
 		const { title, price, brand_id, category_id, images, description, specs } =
 			req.body;
 
-		// ZOD VALIDATION (specs,...)
+		// TODO: ZOD VALIDATION (specs,...)
 
 		if (!title || !price || !brand_id || !category_id || !images) {
 			res.status(400).json({
@@ -110,7 +110,7 @@ export async function createProduct(
 			return;
 		}
 
-		const { error } = await supabase.from("products").insert([
+		const { data, error } = await supabase.from("products").insert([
 			{
 				seller_id,
 				title,
@@ -121,7 +121,19 @@ export async function createProduct(
 				description: description || null,
 				specs: specs || null,
 			},
-		]);
+		]).select(`
+			id,
+			seller_id,
+			is_sold,
+			title,
+			price,
+			images,
+			brand_id,
+			category_id,
+			description,
+			specs,
+			created_at
+		`);
 
 		if (error) {
 			res.status(400).json({
@@ -133,7 +145,7 @@ export async function createProduct(
 
 		res.status(201).json({
 			success: true,
-			message: "Product created successfully",
+			product: data,
 		});
 	} catch (e) {
 		console.error("Create product error:", e);
@@ -161,13 +173,19 @@ export async function getAllProducts(
 			core_material,
 		} = req.body;
 
-		let query = supabase.from("products").select(
-			`
-                id, seller_id, is_sold, title, description, price, images, specs,
-                brand:brands (*),
-                category:categories (*)
-            `,
-		);
+		let query = supabase.from("products").select(`
+            id,
+			seller_id,
+			is_sold,
+			title,
+			price,
+			images,
+			brand_id,
+			category_id,
+			description,
+			specs,
+			created_at
+        `);
 
 		// Filter deleted products
 		query = query.eq("is_deleted", false);
@@ -259,9 +277,17 @@ export async function getProductById(
 			.from("products")
 			.select(
 				`
-                id, seller_id, is_sold, title, description, price, images, specs,
-                brand:brands (*),
-                category:categories (*)
+                id,
+				seller_id,
+				is_sold,
+				title,
+				price,
+				images,
+				brand_id,
+				category_id,
+				description,
+				specs,
+				created_at
             `,
 			)
 			.eq("id", id)
@@ -296,10 +322,10 @@ export async function updateProductById(
 		const { title, description, brand_id, category_id, price, specs, images } =
 			req.body;
 
-		// ZOD VALIDATION
+		// TODO: ZOD VALIDATION
 
 		// Get product first
-		const { data, error: fetchError } = await supabase
+		const { data: fetchData, error: fetchError } = await supabase
 			.from("products")
 			.select("seller_id, is_sold")
 			.eq("id", id)
@@ -315,7 +341,7 @@ export async function updateProductById(
 		}
 
 		// Check if seller owns this product
-		if (data.seller_id !== seller_id) {
+		if (fetchData.seller_id !== seller_id) {
 			res.status(403).json({
 				success: false,
 				message: "Unauthorized - you can only update your own products",
@@ -324,7 +350,7 @@ export async function updateProductById(
 		}
 
 		// Check if product is not sold
-		if (data.is_sold) {
+		if (fetchData.is_sold) {
 			res.status(400).json({
 				success: false,
 				message: "Cannot update a product that has been sold",
@@ -361,10 +387,22 @@ export async function updateProductById(
 			return;
 		}
 
-		const { error } = await supabase
+		const { data, error } = await supabase
 			.from("products")
 			.update(updateData)
-			.eq("id", id);
+			.eq("id", id).select(`
+				id,
+				seller_id,
+				is_sold,
+				title,
+				price,
+				images,
+				brand_id,
+				category_id,
+				description,
+				specs,
+				created_at
+			`);
 
 		if (error) {
 			res.status(400).json({
@@ -375,7 +413,7 @@ export async function updateProductById(
 		}
 		res.status(200).json({
 			success: true,
-			message: "Product updated successfully",
+			product: data,
 		});
 	} catch (e) {
 		console.error("Update product error:", e);

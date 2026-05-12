@@ -19,7 +19,7 @@ export async function createOrder(
 			shipping_note,
 		} = req.body;
 
-		// ZOD VALIDATION
+		// TODO: ZOD VALIDATION
 
 		const shipping_info = {
 			name: shipping_name,
