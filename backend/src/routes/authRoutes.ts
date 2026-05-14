@@ -1,5 +1,10 @@
 import express from "express";
-import { signIn, signUp, signOut } from "../controllers/authController";
+import {
+	signIn,
+	signUp,
+	signOut,
+	getUserInfo,
+} from "../controllers/authController";
 import { requireAuth } from "../middlewares/authMiddleware";
 
 export const authRouter = express.Router();
@@ -7,3 +12,4 @@ export const authRouter = express.Router();
 authRouter.post("/signup", signUp);
 authRouter.post("/signin", signIn);
 authRouter.post("/signout", signOut);
+authRouter.get("/user", requireAuth, getUserInfo);

@@ -1,6 +1,7 @@
 import { supabase } from "../config/supabase";
 import { Request, Response } from "express";
 import { sendServerError } from "../utils/sendServerError";
+import { AuthRequest } from "../types/authrequest";
 
 // Đăng ký tài khoản
 export async function signUp(req: Request, res: Response): Promise<void> {
@@ -109,6 +110,38 @@ export async function signOut(req: Request, res: Response): Promise<void> {
 		});
 	} catch (e) {
 		console.error("Signout error:", e);
+		sendServerError(res);
+	}
+}
+
+// Lấy thông tin người dùng
+export async function getUserInfo(
+	req: AuthRequest,
+	res: Response,
+): Promise<void> {
+	try {
+		const user_id = req.user.id;
+
+		const { data, error } = await supabase
+			.from("profiles")
+			.select("*")
+			.eq("user_id", user_id)
+			.single();
+
+		if (error) {
+			res.status(404).json({
+				success: false,
+				message: "User profile not found",
+			});
+			return;
+		}
+
+		res.status(200).json({
+			success: true,
+			user: data,
+		});
+	} catch (e) {
+		console.error("Get user info error:", e);
 		sendServerError(res);
 	}
 }

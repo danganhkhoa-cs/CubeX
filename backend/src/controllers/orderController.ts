@@ -192,3 +192,163 @@ export async function updateOrderStatus(
 		sendServerError(res);
 	}
 }
+
+export async function shippingProduct(
+	req: AuthRequest,
+	res: Response,
+): Promise<void> {
+	try {
+		const { tracking_id } = req.params;
+		const user_id = req.user.id;
+
+		const { data, error } = await supabase.rpc("update_order_status", {
+			p_user_id: user_id,
+			p_tracking_id: tracking_id,
+			p_status: "shipping",
+		});
+
+		if (error) {
+			res.status(400).json({
+				success: false,
+				message: error.message,
+			});
+			return;
+		}
+
+		res.status(200).json({
+			success: true,
+			order: data[0],
+		});
+	} catch (e) {
+		console.error("Shipping product error:", e);
+		sendServerError(res);
+	}
+}
+
+export async function confirmShipping(
+	req: AuthRequest,
+	res: Response,
+): Promise<void> {
+	try {
+		const { tracking_id } = req.params;
+		const user_id = req.user.id;
+
+		const { data, error } = await supabase.rpc("update_order_status", {
+			p_user_id: user_id,
+			p_tracking_id: tracking_id,
+			p_status: "shipped",
+		});
+
+		if (error) {
+			res.status(400).json({
+				success: false,
+				message: error.message,
+			});
+			return;
+		}
+
+		res.status(200).json({
+			success: true,
+			order: data[0],
+		});
+	} catch (e) {
+		console.error("Confirm shipping error:", e);
+		sendServerError(res);
+	}
+}
+
+export async function cancelOrder(
+	req: AuthRequest,
+	res: Response,
+): Promise<void> {
+	try {
+		const { tracking_id } = req.params;
+		const user_id = req.user.id;
+
+		const { data, error } = await supabase.rpc("update_order_status", {
+			p_user_id: user_id,
+			p_tracking_id: tracking_id,
+			p_status: "cancelled",
+		});
+
+		if (error) {
+			res.status(400).json({
+				success: false,
+				message: error.message,
+			});
+			return;
+		}
+
+		res.status(200).json({
+			success: true,
+			order: data[0],
+		});
+	} catch (e) {
+		console.error("Cancel order error:", e);
+		sendServerError(res);
+	}
+}
+
+export async function confirmReceived(
+	req: AuthRequest,
+	res: Response,
+): Promise<void> {
+	try {
+		const { tracking_id } = req.params;
+		const user_id = req.user.id;
+
+		const { data, error } = await supabase.rpc("update_order_status", {
+			p_user_id: user_id,
+			p_tracking_id: tracking_id,
+			p_status: "completed",
+		});
+
+		if (error) {
+			res.status(400).json({
+				success: false,
+				message: error.message,
+			});
+			return;
+		}
+
+		res.status(200).json({
+			success: true,
+			order: data[0],
+		});
+	} catch (e) {
+		console.error("Confirm received error:", e);
+		sendServerError(res);
+	}
+}
+
+export async function raiseDispute(
+	req: AuthRequest,
+	res: Response,
+): Promise<void> {
+	try {
+		const { tracking_id } = req.params;
+		const user_id = req.user.id;
+
+		const { data, error } = await supabase.rpc("update_order_status", {
+			p_user_id: user_id,
+			p_tracking_id: tracking_id,
+			p_status: "disputed",
+		});
+
+		if (error) {
+			res.status(400).json({
+				success: false,
+				message: error.message,
+			});
+			return;
+		}
+
+		res.status(200).json({
+			success: true,
+			order: data[0],
+		});
+	} catch (e) {
+		console.error("Raise dispute error:", e);
+		sendServerError(res);
+	}
+}

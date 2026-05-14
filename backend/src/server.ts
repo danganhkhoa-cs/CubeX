@@ -7,6 +7,7 @@ import { authRouter } from "./routes/authRoutes";
 import { walletRouter } from "./routes/walletRoutes";
 import { productRouter } from "./routes/productRoutes";
 import { orderRouter } from "./routes/orderRoutes";
+import { adminRouter } from "./routes/adminRoutes";
 
 const app = express();
 const PORT = process.env.PORT || 8000;
@@ -26,6 +27,7 @@ app.get("/api/health", (req, res) => {
 	});
 });
 
+app.use("/api/admin", adminRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/wallet", walletRouter);
 app.use("/api/products", productRouter);
