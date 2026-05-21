@@ -1,7 +1,23 @@
 import { Response } from "express";
+import { z } from "zod";
 import { AuthRequest } from "../types/authrequest";
 import { sendServerError } from "../utils/sendServerError";
 import { supabase } from "../config/supabase";
+
+const createOrderSchema = z.object({
+	product_id: z.uuid(),
+	shipping_name: z.string().min(1),
+	shipping_phone: z.coerce.string().min(1),
+	shipping_street: z.string().min(1),
+	shipping_district: z.string().min(1),
+	shipping_city: z.string().min(1),
+	shipping_note: z.string().optional().nullable(),
+});
+
+const raiseDisputeSchema = z.object({
+	reason: z.string().min(1),
+	evidence_urls: z.array(z.string().min(1)),
+});
 
 export async function createOrder(
 	req: AuthRequest,
@@ -9,6 +25,16 @@ export async function createOrder(
 ): Promise<void> {
 	try {
 		const buyer_id = req.user.id;
+		const parsed = createOrderSchema.safeParse(req.body);
+		if (!parsed.success) {
+			res.status(400).json({
+				success: false,
+				message: "Invalid request body",
+				details: parsed.error.flatten().fieldErrors,
+			});
+			return;
+		}
+
 		const {
 			product_id,
 			shipping_name,
@@ -17,9 +43,7 @@ export async function createOrder(
 			shipping_district,
 			shipping_city,
 			shipping_note,
-		} = req.body;
-
-		// TODO: ZOD VALIDATION
+		} = parsed.data;
 
 		const shipping_info = {
 			name: shipping_name,
@@ -327,13 +351,66 @@ export async function raiseDispute(
 ): Promise<void> {
 	try {
 		const { tracking_id } = req.params;
-		const user_id = req.user.id;
+		const buyer_id = req.user.id;
+		const parsed = raiseDisputeSchema.safeParse(req.body);
+		if (!parsed.success) {
+			res.status(400).json({
+				success: false,
+				message: "Invalid request body",
+				details: parsed.error.flatten().fieldErrors,
+			});
+			return;
+		}
 
-		const { data, error } = await supabase.rpc("update_order_status", {
-			p_user_id: user_id,
+		const { reason, evidence_urls } = parsed.data;
+
+		// Get order by tracking_id
+		const { data: orderData, error: orderError } = await supabase.rpc(
+			"get_order_by_tracking_id",
+			{
+				p_tracking_id: tracking_id,
+				p_user_id: buyer_id,
+			},
+		);
+
+		if (orderError || !orderData) {
+			res.status(404).json({
+				success: false,
+				message: "Order not found",
+			});
+			return;
+		}
+
+		const order_id = orderData.id;
+
+		// Update order status to disputed
+		const { error: statusError } = await supabase.rpc("update_order_status", {
+			p_user_id: buyer_id,
 			p_tracking_id: tracking_id,
 			p_status: "disputed",
 		});
+
+		if (statusError) {
+			console.error("Error updating order status:", statusError);
+			res.status(400).json({
+				success: false,
+				message: statusError.message,
+			});
+			return;
+		}
+
+		// Create dispute record
+		const { data, error } = await supabase
+			.from("disputes")
+			.insert([
+				{
+					order_id: order_id,
+					buyer_id: buyer_id,
+					reason: reason,
+					evidence_urls: evidence_urls,
+				},
+			])
+			.select();
 
 		if (error) {
 			res.status(400).json({
@@ -343,9 +420,9 @@ export async function raiseDispute(
 			return;
 		}
 
-		res.status(200).json({
+		res.status(201).json({
 			success: true,
-			order: data[0],
+			dispute: data[0],
 		});
 	} catch (e) {
 		console.error("Raise dispute error:", e);

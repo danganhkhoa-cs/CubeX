@@ -1,7 +1,12 @@
 import { Response } from "express";
+import { z } from "zod";
 import { AuthRequest } from "../types/authrequest";
 import { sendServerError } from "../utils/sendServerError";
 import { supabase } from "../config/supabase";
+
+const amountSchema = z.object({
+	amount: z.coerce.number().int().positive(),
+});
 
 export async function getBalance(
 	req: AuthRequest,
@@ -36,10 +41,18 @@ export async function getBalance(
 
 export async function topUp(req: AuthRequest, res: Response): Promise<void> {
 	try {
-		const { amount } = req.body;
-		const wallet_id = req.user.id;
+		const parsed = amountSchema.safeParse(req.body);
+		if (!parsed.success) {
+			res.status(400).json({
+				success: false,
+				message: "Invalid request body",
+				details: parsed.error.flatten().fieldErrors,
+			});
+			return;
+		}
 
-		// TODO: ZOD VALIDATION
+		const { amount } = parsed.data;
+		const wallet_id = req.user.id;
 
 		const { data, error } = await supabase.rpc("create_transaction", {
 			p_wallet_id: wallet_id,
@@ -68,10 +81,18 @@ export async function topUp(req: AuthRequest, res: Response): Promise<void> {
 
 export async function withdraw(req: AuthRequest, res: Response): Promise<void> {
 	try {
-		const { amount } = req.body;
-		const wallet_id = req.user.id;
+		const parsed = amountSchema.safeParse(req.body);
+		if (!parsed.success) {
+			res.status(400).json({
+				success: false,
+				message: "Invalid request body",
+				details: parsed.error.flatten().fieldErrors,
+			});
+			return;
+		}
 
-		// TODO: ZOD VALIDATION
+		const { amount } = parsed.data;
+		const wallet_id = req.user.id;
 
 		const { data, error } = await supabase.rpc("create_transaction", {
 			p_wallet_id: wallet_id,

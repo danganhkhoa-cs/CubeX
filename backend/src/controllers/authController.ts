@@ -1,14 +1,35 @@
 import { supabase } from "../config/supabase";
 import { Request, Response } from "express";
+import { z } from "zod";
 import { sendServerError } from "../utils/sendServerError";
 import { AuthRequest } from "../types/authrequest";
+
+const signUpSchema = z.object({
+	email: z.email(),
+	password: z.string().min(6),
+	username: z.string().min(1),
+	full_name: z.string().min(1),
+});
+
+const signInSchema = z.object({
+	email: z.email(),
+	password: z.string().min(6),
+});
 
 // Đăng ký tài khoản
 export async function signUp(req: Request, res: Response): Promise<void> {
 	try {
-		const { email, password, username, full_name } = req.body;
+		const parsed = signUpSchema.safeParse(req.body);
+		if (!parsed.success) {
+			res.status(400).json({
+				success: false,
+				message: "Invalid request body",
+				details: parsed.error.flatten().fieldErrors,
+			});
+			return;
+		}
 
-		// TODO: ZOD VALIDATION
+		const { email, password, username, full_name } = parsed.data;
 
 		const { data, error } = await supabase.auth.signUp({
 			email: email,
@@ -24,7 +45,7 @@ export async function signUp(req: Request, res: Response): Promise<void> {
 		if (error) {
 			res.status(400).json({
 				success: false,
-				error: error.message,
+				message: error.message,
 			});
 			return;
 		}
@@ -42,9 +63,17 @@ export async function signUp(req: Request, res: Response): Promise<void> {
 // Đăng nhập tài khoản
 export async function signIn(req: Request, res: Response): Promise<void> {
 	try {
-		const { email, password } = req.body;
+		const parsed = signInSchema.safeParse(req.body);
+		if (!parsed.success) {
+			res.status(400).json({
+				success: false,
+				message: "Invalid request body",
+				details: parsed.error.flatten().fieldErrors,
+			});
+			return;
+		}
 
-		// TODO: ZOD VALIDATION
+		const { email, password } = parsed.data;
 
 		const { data, error } = await supabase.auth.signInWithPassword({
 			email: email,

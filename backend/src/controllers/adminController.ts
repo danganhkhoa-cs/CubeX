@@ -31,26 +31,26 @@ export async function getAllDisputes(
 	}
 }
 
-// TODO: Create rpc to handle dispute resolution logic
 export async function resolveDispute(
 	req: AuthRequest,
 	res: Response,
 ): Promise<void> {
 	try {
 		const { tracking_id } = req.params;
-		const { verdict } = req.body;
+		const { resolution } = req.body;
 
-		if (!["refund", "release"].includes(verdict)) {
+		if (!["refund_buyer", "release_to_seller"].includes(resolution)) {
 			res.status(400).json({
 				success: false,
-				message: "Invalid verdict. Must be 'refund' or 'release'",
+				message:
+					"Invalid resolution. Must be 'refund_buyer' or 'release_to_seller'",
 			});
 			return;
 		}
 
 		const { data, error } = await supabase.rpc("resolve_dispute", {
 			p_tracking_id: tracking_id,
-			p_verdict: verdict,
+			p_resolution: resolution,
 		});
 
 		if (error) {

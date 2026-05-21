@@ -1,7 +1,30 @@
 import { Request, Response } from "express";
+import { z } from "zod";
 import { AuthRequest } from "../types/authrequest";
 import { sendServerError } from "../utils/sendServerError";
 import { supabase } from "../config/supabase";
+
+const productImageSchema = z.array(z.string().min(1)).nonempty();
+
+const createProductSchema = z.object({
+	title: z.string().min(1),
+	price: z.coerce.number().int().positive(),
+	brand_id: z.uuid(),
+	category_id: z.uuid(),
+	images: productImageSchema,
+	description: z.string().optional().nullable(),
+	specs: z.record(z.string(), z.unknown()).optional().nullable(),
+});
+
+const updateProductSchema = z.object({
+	title: z.string().min(1).optional().nullable(),
+	description: z.string().optional().nullable(),
+	brand_id: z.uuid().optional().nullable(),
+	category_id: z.uuid().optional().nullable(),
+	price: z.coerce.number().int().positive().optional().nullable(),
+	specs: z.record(z.string(), z.unknown()).optional().nullable(),
+	images: productImageSchema.optional().nullable(),
+});
 
 export async function getProductSpecs(
 	req: Request,
@@ -88,27 +111,18 @@ export async function createProduct(
 ): Promise<void> {
 	try {
 		const seller_id = req.user.id;
+		const parsed = createProductSchema.safeParse(req.body);
+		if (!parsed.success) {
+			res.status(400).json({
+				success: false,
+				message: "Invalid request body",
+				details: parsed.error.flatten().fieldErrors,
+			});
+			return;
+		}
+
 		const { title, price, brand_id, category_id, images, description, specs } =
-			req.body;
-
-		// TODO: ZOD VALIDATION (specs,...)
-
-		if (!title || !price || !brand_id || !category_id || !images) {
-			res.status(400).json({
-				success: false,
-				message:
-					"Missing required fields: title, price, brand_id, category_id, images",
-			});
-			return;
-		}
-
-		if (!Array.isArray(images) || images.length === 0) {
-			res.status(400).json({
-				success: false,
-				message: "Images must be a non-empty array",
-			});
-			return;
-		}
+			parsed.data;
 
 		const { data, error } = await supabase.from("products").insert([
 			{
@@ -319,10 +333,18 @@ export async function updateProductById(
 	try {
 		const { id } = req.params;
 		const seller_id = req.user.id;
-		const { title, description, brand_id, category_id, price, specs, images } =
-			req.body;
+		const parsed = updateProductSchema.safeParse(req.body);
+		if (!parsed.success) {
+			res.status(400).json({
+				success: false,
+				message: "Invalid request body",
+				details: parsed.error.flatten().fieldErrors,
+			});
+			return;
+		}
 
-		// TODO: ZOD VALIDATION
+		const { title, description, brand_id, category_id, price, specs, images } =
+			parsed.data;
 
 		// Get product first
 		const { data: fetchData, error: fetchError } = await supabase
@@ -368,16 +390,7 @@ export async function updateProductById(
 			updateData.category_id = category_id;
 		if (price !== undefined && price !== null) updateData.price = price;
 		if (specs !== undefined) updateData.specs = specs;
-		if (images !== undefined && images !== null) {
-			if (!Array.isArray(images) || images.length === 0) {
-				res.status(400).json({
-					success: false,
-					message: "Images must be a non-empty array",
-				});
-				return;
-			}
-			updateData.images = images;
-		}
+		if (images !== undefined && images !== null) updateData.images = images;
 
 		if (Object.keys(updateData).length === 0) {
 			res.status(400).json({
