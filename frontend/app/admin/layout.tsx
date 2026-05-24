@@ -16,7 +16,7 @@ export default function AdminLayout({
   return (
     <div className="min-h-svh bg-background">
       <header className="border-b border-border">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4">
+        <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-4">
           <div>
             <p className="text-sm font-semibold text-foreground">CubeX Admin</p>
             <p className="text-xs text-muted-foreground">Ops dashboard</p>
@@ -26,7 +26,7 @@ export default function AdminLayout({
           </Button>
         </div>
       </header>
-      <div className="mx-auto w-full max-w-6xl px-6 py-8">
+      <div className="mx-auto w-full max-w-7xl px-6 py-8">
         <div className="grid gap-6 md:grid-cols-[220px_1fr]">
           <aside className="hidden flex-col gap-4 md:flex">
             <p className="text-sm font-semibold text-foreground">Navigation</p>

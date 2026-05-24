@@ -2,6 +2,7 @@ import Link from "next/link"
 
 import Footer from "@/components/Footer"
 import Navbar from "@/components/Navbar"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import ProductCard from "@/components/ProductCard"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -37,11 +38,25 @@ const featuredProducts = [
   },
 ]
 
-export default function Page() {
+export default function Page({
+  searchParams,
+}: {
+  searchParams?: { login?: string }
+}) {
+  const showLoginAlert = searchParams?.login === "success"
+
   return (
     <div className="min-h-svh bg-background">
       <Navbar />
-      <main className="mx-auto w-full max-w-6xl px-6 py-10">
+      <main className="mx-auto w-full max-w-7xl px-6 py-10">
+        {showLoginAlert && (
+          <Alert className="mb-6">
+            <AlertTitle>Welcome back</AlertTitle>
+            <AlertDescription>
+              You have successfully signed in.
+            </AlertDescription>
+          </Alert>
+        )}
         <section className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
           <div className="space-y-5">
             <Badge variant="secondary" className="w-fit">

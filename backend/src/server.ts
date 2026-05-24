@@ -15,7 +15,9 @@ const PORT = process.env.PORT || 8000;
 app.use(
 	cors({
 		origin:
-			process.env.NODE_ENV === "development" ? "*" : process.env.FRONTEND_URL,
+			process.env.NODE_ENV === "development"
+				? "http://localhost:3000"
+				: process.env.FRONTEND_URL,
 		credentials: true,
 		methods: ["GET", "POST", "PATCH", "DELETE"],
 	}),
