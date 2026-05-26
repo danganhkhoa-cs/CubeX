@@ -172,6 +172,8 @@ export async function getAllProducts(
 	res: Response,
 ): Promise<void> {
 	try {
+		const { seller_id } = req.query;
+
 		const {
 			min_price,
 			max_price,
@@ -185,12 +187,12 @@ export async function getAllProducts(
 			magnet_type,
 			customization_type,
 			core_material,
-		} = req.body;
+		} = req.body || {};
 
-		let query = supabase.from("products").select(`
+		let query = supabase.from("products").select(
+			`
             id,
 			seller_id,
-			is_sold,
 			title,
 			price,
 			images,
@@ -199,10 +201,17 @@ export async function getAllProducts(
 			description,
 			specs,
 			created_at
-        `);
+        `,
+		);
 
 		// Filter deleted products
 		query = query.eq("is_deleted", false);
+
+		if (seller_id) {
+			query = query.eq("seller_id", seller_id);
+		} else {
+			query = query.eq("is_sold", false);
+		}
 
 		// Filter by price
 		if (min_price !== null && min_price !== undefined) {

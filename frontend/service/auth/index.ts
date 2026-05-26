@@ -5,6 +5,7 @@ import {
   SignInPayload,
   SignInResponse,
   GetUserResponse,
+  GetUserPublicResponse,
 } from "./types"
 
 export const authService = {
@@ -37,6 +38,13 @@ export const authService = {
   },
   getUserInfo: async (): Promise<GetUserResponse> => {
     const response = await apiClient.get<GetUserResponse>("/auth/user")
+
+    return response.data
+  },
+  getUserPublicInfo: async (userId: string): Promise<GetUserPublicResponse> => {
+    const response = await apiClient.get<GetUserPublicResponse>(
+      `/auth/user/${userId}`
+    )
 
     return response.data
   },

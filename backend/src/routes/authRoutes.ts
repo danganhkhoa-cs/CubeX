@@ -4,6 +4,7 @@ import {
 	signUp,
 	signOut,
 	getUserInfo,
+	getUserInfoById,
 } from "../controllers/authController";
 import { requireAuth } from "../middlewares/authMiddleware";
 
@@ -13,3 +14,4 @@ authRouter.post("/signup", signUp);
 authRouter.post("/signin", signIn);
 authRouter.post("/signout", signOut);
 authRouter.get("/user", requireAuth, getUserInfo);
+authRouter.get("/user/:id", getUserInfoById);

@@ -73,7 +73,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"P@ssw0rd!\"\n}"
+              "raw": "{\n  \"email\": \"anhkhoa200511@gmail.com\",\n  \"password\": \"123456\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/auth/signin",
@@ -122,6 +122,26 @@
                 "api",
                 "auth",
                 "user"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get User Info by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/user/6ee68da3-6e9a-4132-9ac1-832dcc12a3eb",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "user",
+                "6ee68da3-6e9a-4132-9ac1-832dcc12a3eb"
               ]
             }
           },
@@ -424,6 +444,14 @@
                 "{{productId}}"
               ]
             }
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Products of seller",
+          "request": {
+            "method": "GET",
+            "header": []
           },
           "response": []
         }

@@ -143,7 +143,6 @@ export async function signOut(req: Request, res: Response): Promise<void> {
 	}
 }
 
-// Lấy thông tin người dùng
 export async function getUserInfo(
 	req: AuthRequest,
 	res: Response,
@@ -155,6 +154,37 @@ export async function getUserInfo(
 			.from("profiles")
 			.select("*")
 			.eq("user_id", user_id)
+			.single();
+
+		if (error) {
+			res.status(404).json({
+				success: false,
+				message: "User profile not found",
+			});
+			return;
+		}
+
+		res.status(200).json({
+			success: true,
+			user: data,
+		});
+	} catch (e) {
+		console.error("Get user info error:", e);
+		sendServerError(res);
+	}
+}
+
+export async function getUserInfoById(
+	req: Request,
+	res: Response,
+): Promise<void> {
+	try {
+		const { id } = req.params;
+
+		const { data, error } = await supabase
+			.from("profiles_public")
+			.select("*")
+			.eq("user_id", id)
 			.single();
 
 		if (error) {

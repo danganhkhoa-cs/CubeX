@@ -3,6 +3,7 @@ import { useRouter } from "next/navigation"
 import { authService } from "@/service/auth"
 import { useAuth } from "@/hooks/auth/useAuth"
 import { validateSignIn } from "./signInValidation"
+import { toast } from "sonner"
 
 interface FormData {
   email: string
@@ -61,7 +62,8 @@ export const useSignIn = () => {
     try {
       await authService.signin(formData)
       await refresh()
-      router.push("/?login=success")
+      toast.success("Welcome back")
+      router.replace("/")
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "An error occurred during signin"

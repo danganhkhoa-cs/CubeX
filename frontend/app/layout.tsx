@@ -3,6 +3,8 @@ import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { cn } from "@/lib/utils"
 import { AuthProvider } from "@/hooks/auth/useAuth"
+import { FilterProvider } from "@/hooks/filter/useFilter"
+import { Toaster } from "@/components/ui/sonner"
 const roboto = Roboto({ subsets: ["latin"], variable: "--font-sans" })
 
 const fontMono = Geist_Mono({
@@ -28,7 +30,12 @@ export default function RootLayout({
     >
       <body>
         <ThemeProvider>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            <FilterProvider>
+              {children}
+              <Toaster position="top-center" />
+            </FilterProvider>
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

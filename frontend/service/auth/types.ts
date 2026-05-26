@@ -160,3 +160,27 @@ export interface GetUserErrorResponse {
 }
 
 export type GetUserResponse = GetUserSuccessResponse | GetUserErrorResponse
+
+export interface UserProfilePublic {
+  user_id: string
+  username: string
+  full_name: string
+  avatar_url: string | null
+  bio: string | null
+  phone: string | null
+  email: string
+}
+
+export interface GetUserPublicSuccessResponse {
+  success: true
+  user: UserProfilePublic
+}
+
+export interface GetUserPublicErrorResponse {
+  success: false
+  message: string
+}
+
+export type GetUserPublicResponse =
+  | GetUserPublicSuccessResponse
+  | GetUserPublicErrorResponse

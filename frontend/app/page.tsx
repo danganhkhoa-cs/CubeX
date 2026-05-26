@@ -2,66 +2,35 @@ import Link from "next/link"
 
 import Footer from "@/components/Footer"
 import Navbar from "@/components/Navbar"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import ProductCard from "@/components/ProductCard"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import ProductFilterCard from "@/components/filters/ProductFilterCard"
+import ProductCard from "@/components/ProductCard"
+import { productService } from "@/service/products"
 import { Separator } from "@/components/ui/separator"
 
-const featuredProducts = [
-  {
-    title: "Aurora 3x3",
-    price: "$128",
-    badge: "Rare",
-    condition: "Lightly used",
-  },
-  {
-    title: "Prism 4x4",
-    price: "$210",
-    badge: "Collector",
-    condition: "New in box",
-  },
-  {
-    title: "Vertex 2x2",
-    price: "$78",
-    badge: "Limited",
-    condition: "Sealed",
-  },
-]
+// We'll load featured products from the API below in the Page component.
 
-export default function Page({
-  searchParams,
-}: {
-  searchParams?: { login?: string }
-}) {
-  const showLoginAlert = searchParams?.login === "success"
+export default async function Page() {
+  // Fetch products + brands/categories to resolve names
+  const [products, brands, categories] = await Promise.all([
+    productService.getProducts(),
+    productService.getBrands(),
+    productService.getCategories(),
+  ])
+
+  const brandMap = new Map(brands.map((b) => [b.id, b.name]))
+  const categoryMap = new Map(categories.map((c) => [c.id, c.name]))
+
+  const featured = products.slice(0, 4)
 
   return (
     <div className="min-h-svh bg-background">
       <Navbar />
       <main className="mx-auto w-full max-w-7xl px-6 py-10">
-        {showLoginAlert && (
-          <Alert className="mb-6">
-            <AlertTitle>Welcome back</AlertTitle>
-            <AlertDescription>
-              You have successfully signed in.
-            </AlertDescription>
-          </Alert>
-        )}
+        {/* Sonner toast displays signin success; no server-side alert needed */}
         <section className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
           <div className="space-y-5">
-            <Badge variant="secondary" className="w-fit">
-              Marketplace live
-            </Badge>
+            <div className="h-10"></div>
             <div className="space-y-3">
               <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">
                 Marketplace Explorer
@@ -80,39 +49,7 @@ export default function Page({
               </Button>
             </div>
           </div>
-          <Card className="border-border">
-            <CardHeader>
-              <CardTitle className="text-base">Quick filters</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <span className="text-sm text-muted-foreground">Search</span>
-                <Input placeholder="Search by Rubik's cube name" />
-              </div>
-              <div className="space-y-2">
-                <span className="text-sm text-muted-foreground">Category</span>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="All categories" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="3x3">3x3</SelectItem>
-                    <SelectItem value="4x4">4x4</SelectItem>
-                    <SelectItem value="limited">Limited</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <span className="text-sm text-muted-foreground">
-                  Price range
-                </span>
-                <Input placeholder="$50 - $300" />
-              </div>
-              <Button variant="outline" className="w-full">
-                View filters
-              </Button>
-            </CardContent>
-          </Card>
+          <ProductFilterCard variant="quick" />
         </section>
 
         <Separator className="my-10" />
@@ -129,9 +66,17 @@ export default function Page({
               <Link href="/products">See all</Link>
             </Button>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {featuredProducts.map((product) => (
-              <ProductCard key={product.title} {...product} />
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {featured.map((product) => (
+              <ProductCard
+                key={product.id}
+                title={product.title}
+                price={product.price}
+                images={product.images}
+                brandName={brandMap.get(product.brand_id)}
+                categoryName={categoryMap.get(product.category_id)}
+                specs={product.specs}
+              />
             ))}
           </div>
         </section>
