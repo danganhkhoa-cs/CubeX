@@ -1,74 +1,282 @@
+"use client"
+
+import { useEffect, useMemo, useState } from "react"
+import Link from "next/link"
+import { useParams } from "next/navigation"
+
+import ProductDetailSkeleton from "@/components/ProductDetailSkeleton"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
+import { useFilter } from "@/hooks/filter/useFilter"
+import { authService } from "@/service/auth"
+import { productService } from "@/service/products"
+import type { ProductDetail } from "@/service/products/types"
+import type { UserProfilePublic } from "@/service/auth/types"
+
+const specsLabels: Record<string, string> = {
+  normal: "Normal",
+  se: "SE",
+  limited: "Limited",
+  glossy: "Glossy",
+  matte: "Matte",
+  uv: "UV",
+  none: "None",
+  standard: "Standard",
+  plastic: "Plastic core",
+  metal: "Metal core",
+  ballcore8m: "BallCore 8M",
+  ballcore20m: "BallCore 20M",
+  maglev: "MagLev",
+  magcore: "MagCore",
+}
+
+const specsCustomizationLabels: Record<string, string> = {
+  magcore: "CUST: MagCore",
+  ballcore8m: "CUST: BallCore 8M",
+  ballcore20m: "CUST: BallCore 20M",
+  maglev: "CUST: MagLev",
+  uv: "CUST: UV",
+  other: "CUST: Other",
+}
+
+function formatSpecValue(value: string) {
+  return specsLabels[value] || value
+}
+
+function getInitials(name: string) {
+  const parts = name.trim().split(" ").filter(Boolean)
+  if (!parts.length) return "U"
+  const initials = parts
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("")
+  return initials || "U"
+}
 
 export default function Page() {
+  const params = useParams<{ id: string }>()
+  const productId = Array.isArray(params?.id) ? params.id[0] : params?.id
+  const { brands, categories } = useFilter()
+  const [product, setProduct] = useState<ProductDetail | null>(null)
+  const [seller, setSeller] = useState<UserProfilePublic | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let mounted = true
+
+    async function load() {
+      if (!productId) return
+
+      setLoading(true)
+      setError(null)
+
+      try {
+        const data = await productService.getProductById(productId)
+        if (mounted) {
+          setProduct(data)
+        }
+
+        try {
+          const sellerResponse = await authService.getUserPublicInfo(
+            data.seller_id
+          )
+          if (mounted && sellerResponse.success) {
+            setSeller(sellerResponse.user)
+          }
+        } catch {
+          if (mounted) {
+            setSeller(null)
+          }
+        }
+      } catch (err) {
+        if (mounted) {
+          setError(
+            err instanceof Error ? err.message : "Failed to load product"
+          )
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false)
+        }
+      }
+    }
+
+    load()
+
+    return () => {
+      mounted = false
+    }
+  }, [productId])
+
+  const priceLabel = useMemo(() => {
+    if (!product) return ""
+    return (product.price / 100).toLocaleString("en-US", {
+      style: "currency",
+      currency: "USD",
+    })
+  }, [product])
+
+  const brandName = product
+    ? brands.find((brand) => brand.id === product.brand_id)?.name
+    : undefined
+  const categoryName = product
+    ? categories.find((category) => category.id === product.category_id)?.name
+    : undefined
+  const sellerName = seller?.full_name || seller?.username
+  const sellerInitials = sellerName ? getInitials(sellerName) : "U"
+
+  if (loading) {
+    return <ProductDetailSkeleton />
+  }
+
+  if (error || !product) {
+    return (
+      <main className="space-y-6">
+        <p className="text-sm text-destructive">
+          {error || "Product not found"}
+        </p>
+      </main>
+    )
+  }
+
   return (
     <main className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">Aurora 3x3 Limited</h1>
-          <p className="text-sm text-muted-foreground">
-            Tracked listing - Updated 2 hours ago
-          </p>
-        </div>
-        <Badge variant="secondary">Rare</Badge>
-      </div>
+      <h1 className="text-2xl font-semibold">{product.title}</h1>
 
       <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Gallery</CardTitle>
+            <CardTitle className="text-base uppercase">Images</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="aspect-[4/3] w-full rounded-md bg-muted" />
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div className="aspect-[4/3] rounded-md bg-muted" />
-              <div className="aspect-[4/3] rounded-md bg-muted" />
-              <div className="aspect-[4/3] rounded-md bg-muted" />
-            </div>
-            <Separator />
-            <div className="space-y-2 text-sm text-muted-foreground">
-              <p>Condition: Lightly used</p>
-              <p>Magnet type: Edge</p>
-              <p>Coating: Frosted</p>
-            </div>
+            {product.images?.length ? (
+              <div className="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2">
+                {product.images.map((image) => (
+                  <div
+                    key={image}
+                    className="min-w-[80%] snap-center md:min-w-[60%]"
+                  >
+                    <div
+                      className="aspect-4/3 w-full rounded-md bg-muted bg-contain bg-center bg-no-repeat"
+                      style={{ backgroundImage: `url(${image})` }}
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="aspect-4/3 w-full rounded-md bg-muted" />
+            )}
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Offer</CardTitle>
+            <CardTitle className="text-base uppercase">Details</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 text-sm text-muted-foreground">
             <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">Listed price</p>
-              <p className="text-2xl font-semibold">$128</p>
+              <p className="text-xs tracking-wide text-muted-foreground uppercase">
+                Price
+              </p>
+              <p className="text-2xl font-semibold text-foreground">
+                {priceLabel}
+              </p>
             </div>
             <Separator />
-            <div className="space-y-2 text-sm text-muted-foreground">
-              <p>Seller rating: 4.9</p>
-              <p>Ships from: Ho Chi Minh City</p>
-              <p>Fulfillment: 48h handling</p>
-            </div>
             <div className="flex flex-wrap gap-2">
-              <Button className="flex-1">Buy now</Button>
-              <Button variant="outline" className="flex-1">
-                Message seller
-              </Button>
+              <Badge variant="secondary">
+                {brandName?.toUpperCase() || product.brand_id}
+              </Badge>
+              <Badge variant="ghost">
+                {categoryName || product.category_id}
+              </Badge>
             </div>
+            {product.specs && (
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(product.specs).map(([key, value]) => {
+                  if (key === "customization_types") {
+                    if (Array.isArray(value)) {
+                      return value.map((item) => (
+                        <Badge key={`${key}-${item}`} variant="outline">
+                          {specsCustomizationLabels[item] || item}
+                        </Badge>
+                      ))
+                    }
+                  }
+
+                  if (Array.isArray(value)) {
+                    return value.map((item) => (
+                      <Badge key={`${key}-${item}`} variant="outline">
+                        {formatSpecValue(item)}
+                      </Badge>
+                    ))
+                  }
+
+                  return (
+                    <Badge key={key} variant="outline">
+                      {formatSpecValue(value)}
+                    </Badge>
+                  )
+                })}
+              </div>
+            )}
+            <Separator />
+            <div className="space-y-2">
+              <p className="text-xs tracking-wide text-muted-foreground uppercase">
+                Seller
+              </p>
+              {seller ? (
+                <Link
+                  href={`/profile/${seller.user_id}`}
+                  className="flex w-fit items-center gap-3 py-2 text-foreground"
+                >
+                  <Avatar className="h-10 w-10">
+                    {seller.avatar_url && (
+                      <AvatarImage
+                        src={seller.avatar_url}
+                        alt={seller.full_name}
+                      />
+                    )}
+                    <AvatarFallback className="bg-primary text-sm font-semibold text-background">
+                      {sellerInitials}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="text-sm font-semibold">
+                      {seller.full_name || seller.username}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {seller.username}
+                    </p>
+                  </div>
+                </Link>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  {product.seller_id}
+                </p>
+              )}
+            </div>
+            <Button
+              size="sm"
+              variant="default"
+              className="text-md w-full font-extrabold"
+            >
+              Add to cart
+            </Button>
           </CardContent>
         </Card>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Seller notes</CardTitle>
+          <CardTitle className="text-base uppercase">Description</CardTitle>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground">
-          Cube was used in two competitions, stored in a case, and ships with
-          certificate of authenticity.
+          {product.description || "No description provided."}
         </CardContent>
       </Card>
     </main>

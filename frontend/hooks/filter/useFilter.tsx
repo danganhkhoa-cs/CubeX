@@ -30,6 +30,8 @@ const initialFilters = {
   customizationTypes: [] as string[],
 }
 
+type SortBy = "asc" | "desc" | null
+
 export type FilterState = typeof initialFilters
 
 interface FilterContextValue {
@@ -37,6 +39,7 @@ interface FilterContextValue {
   categories: ProductCategory[]
   specs: ProductSpecs | null
   filters: FilterState
+  sortBy: SortBy
   loading: boolean
   error: string | null
   refresh: () => Promise<void>
@@ -51,6 +54,7 @@ interface FilterContextValue {
   setSpringType: (value: string) => void
   setCoreMaterial: (value: string) => void
   toggleCustomizationType: (value: string) => void
+  setSortBy: (value: SortBy) => void
   resetFilters: () => void
 }
 
@@ -61,6 +65,7 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
   const [categories, setCategories] = useState<ProductCategory[]>([])
   const [specs, setSpecs] = useState<ProductSpecs | null>(null)
   const [filters, setFilters] = useState<FilterState>(initialFilters)
+  const [sortBy, setSortByState] = useState<SortBy>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -151,6 +156,11 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
 
   const resetFilters = useCallback(() => {
     setFilters(initialFilters)
+    setSortByState(null)
+  }, [])
+
+  const setSortBy = useCallback((value: SortBy) => {
+    setSortByState(value)
   }, [])
 
   const value = useMemo(
@@ -159,6 +169,7 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
       categories,
       specs,
       filters,
+      sortBy,
       loading,
       error,
       refresh,
@@ -173,6 +184,7 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
       setSpringType,
       setCoreMaterial,
       toggleCustomizationType,
+      setSortBy,
       resetFilters,
     }),
     [
@@ -180,6 +192,7 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
       categories,
       specs,
       filters,
+      sortBy,
       loading,
       error,
       refresh,
@@ -194,6 +207,7 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
       setSpringType,
       setCoreMaterial,
       toggleCustomizationType,
+      setSortBy,
       resetFilters,
     ]
   )

@@ -41,11 +41,56 @@ export interface Product {
   brand_id: string
   category_id: string
   description?: string
-  specs?: Record<string, string>
+  specs?: Record<string, string | string[]>
   created_at?: string
+}
+
+export interface ProductDetail extends Product {
+  is_sold: boolean
+}
+
+export interface FilterProductsRequest {
+  min_price: number | null
+  max_price: number | null
+  category_id: string | null
+  brand_id: string | null
+  size: string | null
+  weight: string | null
+  edition: string | null
+  coated_type: string | null
+  spring_type: string | null
+  magnet_type: string | null
+  customization_types: string[] | null
+  core_material: string | null
+}
+
+export interface CreateProductRequest {
+  title: string
+  price: number
+  brand_id: string
+  category_id: string
+  images: string[]
+  description?: string | null
+  specs?: Record<string, string | string[]> | null
+}
+
+export interface UploadImagesResponse {
+  success: boolean
+  urls: string[]
+  errors?: { file: string; error: string }[]
+}
+
+export interface CreateProductResponse {
+  success: boolean
+  product: Product[]
 }
 
 export interface GetProductsResponse {
   success: boolean
   products: Product[]
+}
+
+export interface GetProductResponse {
+  success: boolean
+  product: ProductDetail
 }

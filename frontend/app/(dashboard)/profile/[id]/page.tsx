@@ -1,13 +1,17 @@
 "use client"
 
-import Link from "next/link"
+import { useEffect, useState } from "react"
+import { useParams, useRouter } from "next/navigation"
+import { ArrowLeft } from "lucide-react"
 
-import { useAuth } from "@/hooks/auth/useAuth"
+import ProfileSkeleton from "@/components/ProfileSkeleton"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
-import { Spinner } from "@/components/ui/spinner"
+import { authService } from "@/service/auth"
+import type { UserProfilePublic } from "@/service/auth/types"
 
 function getInitials(name: string) {
   const parts = name.trim().split(" ").filter(Boolean)
@@ -39,35 +43,90 @@ function ProfileField({
 }
 
 export default function ProfilePage() {
-  const { user, loading } = useAuth()
+  const router = useRouter()
+  const params = useParams<{ id: string }>()
+  const userId = Array.isArray(params?.id) ? params.id[0] : params?.id
+  const [user, setUser] = useState<UserProfilePublic | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let mounted = true
+
+    async function load() {
+      if (!userId) return
+
+      setLoading(true)
+      setError(null)
+
+      try {
+        const response = await authService.getUserPublicInfo(userId)
+        if (mounted) {
+          if (response.success) {
+            setUser(response.user)
+          } else {
+            setError(response.message)
+          }
+        }
+      } catch (err) {
+        if (mounted) {
+          setError(
+            err instanceof Error ? err.message : "Failed to load profile"
+          )
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false)
+        }
+      }
+    }
+
+    load()
+
+    return () => {
+      mounted = false
+    }
+  }, [userId])
 
   if (loading) {
+    return <ProfileSkeleton />
+  }
+
+  if (error || !user) {
     return (
-      <div className="flex min-h-[50vh] items-center justify-center">
-        <Spinner />
+      <div className="space-y-4">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="inline-flex items-center gap-2"
+          onClick={() => router.back()}
+        >
+          <ArrowLeft className="size-4" />
+          Back
+        </Button>
+        <Card>
+          <CardContent className="p-6 text-sm text-destructive">
+            {error || "Profile not found"}
+          </CardContent>
+        </Card>
       </div>
     )
   }
 
-  if (!user) {
-    return (
-      <Card className="border-border/70 bg-card/90 shadow-sm">
-        <CardContent className="p-6 text-sm text-muted-foreground">
-          Please sign in to view your profile.
-          <div className="mt-4">
-            <Button asChild>
-              <Link href="/signin">Sign in</Link>
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    )
-  }
-
-  const initials = getInitials(user.full_name)
+  const initials = getInitials(user.full_name || user.username || "User")
 
   return (
     <div className="space-y-6">
+      <Button
+        variant="ghost"
+        size="sm"
+        className="inline-flex items-center gap-2"
+        onClick={() => router.back()}
+      >
+        <ArrowLeft className="size-4" />
+        Back
+      </Button>
+
       <Card className="border-border/70 bg-card/90 shadow-sm">
         <CardHeader className="space-y-4">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -82,11 +141,12 @@ export default function ProfilePage() {
               </Avatar>
               <div>
                 <CardTitle className="text-2xl font-bold">
-                  {user.full_name}
+                  {user.full_name || user.username}
                 </CardTitle>
                 <p className="text-sm text-muted-foreground">{user.username}</p>
               </div>
             </div>
+            <Badge variant="secondary">Public profile</Badge>
           </div>
           <p className="max-w-2xl text-sm text-muted-foreground">
             {user.bio || "No bio."}
@@ -99,9 +159,6 @@ export default function ProfilePage() {
             <ProfileField label="Username" value={user.username} />
             <ProfileField label="Email" value={user.email} />
             <ProfileField label="Phone" value={user.phone} />
-            <ProfileField label="City" value={user.city} />
-            <ProfileField label="District" value={user.district} />
-            <ProfileField label="Street" value={user.street} />
             <ProfileField label="Avatar" value={user.avatar_url} />
           </div>
         </CardContent>

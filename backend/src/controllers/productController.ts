@@ -185,7 +185,7 @@ export async function getAllProducts(
 			coated_type,
 			spring_type,
 			magnet_type,
-			customization_type,
+			customization_types,
 			core_material,
 		} = req.body || {};
 
@@ -251,7 +251,7 @@ export async function getAllProducts(
 			coated_type,
 			spring_type,
 			magnet_type,
-			customization_type,
+			customization_types,
 			core_material,
 		};
 
@@ -261,10 +261,18 @@ export async function getAllProducts(
 					if (!product.specs) return false;
 					const specValue = product.specs[key];
 
-					// Handle array specs (check if value is in array)
-					if (Array.isArray(specValue)) {
-						return specValue.includes(value);
+					// Special case for customization_types - exact array match
+					if (key === "customization_types") {
+						if (!Array.isArray(value) || !Array.isArray(specValue)) {
+							return false;
+						}
+						// Check if arrays are equal (same elements regardless of order)
+						return (
+							value.length === specValue.length &&
+							value.every((v) => specValue.includes(v))
+						);
 					}
+
 					// Handle single value specs
 					return specValue === value;
 				});

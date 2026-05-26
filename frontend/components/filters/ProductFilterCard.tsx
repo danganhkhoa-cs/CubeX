@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { useFilter } from "@/hooks/filter/useFilter"
+import { useRouter } from "next/navigation"
 
 const ALL_OPTION = "__all__"
 
@@ -45,11 +46,13 @@ interface ProductFilterCardProps {
 export default function ProductFilterCard({
   variant = "full",
 }: ProductFilterCardProps) {
+  const router = useRouter()
   const {
     brands,
     categories,
     specs,
     filters,
+    sortBy,
     loading,
     error,
     setSearch,
@@ -66,6 +69,9 @@ export default function ProductFilterCard({
   } = useFilter()
 
   const isQuickVariant = variant === "quick"
+  const handleApplyFilters = () => {
+    router.push("/products")
+  }
 
   return (
     <Card className={isQuickVariant ? "border-border" : "h-fit"}>
@@ -99,7 +105,7 @@ export default function ProductFilterCard({
               <SelectValue placeholder="All brands" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL_OPTION}>All brands</SelectItem>
+              <SelectItem value={ALL_OPTION}>---</SelectItem>
               {brands.map((brand) => (
                 <SelectItem key={brand.id} value={brand.id}>
                   {formatLabel(brand.name)}
@@ -122,7 +128,7 @@ export default function ProductFilterCard({
               <SelectValue placeholder="All categories" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL_OPTION}>All categories</SelectItem>
+              <SelectItem value={ALL_OPTION}>---</SelectItem>
               {categories.map((category) => (
                 <SelectItem key={category.id} value={category.id}>
                   {formatLabel(category.name)}
@@ -175,7 +181,7 @@ export default function ProductFilterCard({
                   <SelectValue placeholder="All editions" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={ALL_OPTION}>All editions</SelectItem>
+                  <SelectItem value={ALL_OPTION}>---</SelectItem>
                   {specs?.edition.map((edition) => (
                     <SelectItem key={edition} value={edition}>
                       {formatLabel(edition)}
@@ -202,7 +208,7 @@ export default function ProductFilterCard({
                   <SelectValue placeholder="All coated types" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={ALL_OPTION}>All coated types</SelectItem>
+                  <SelectItem value={ALL_OPTION}>---</SelectItem>
                   {specs?.coated_types.map((coatedType) => (
                     <SelectItem key={coatedType} value={coatedType}>
                       {formatLabel(coatedType)}
@@ -225,7 +231,7 @@ export default function ProductFilterCard({
                   <SelectValue placeholder="All magnet types" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={ALL_OPTION}>All magnet types</SelectItem>
+                  <SelectItem value={ALL_OPTION}>---</SelectItem>
                   {specs?.magnet_types.map((magnetType) => (
                     <SelectItem key={magnetType} value={magnetType}>
                       {formatLabel(magnetType)}
@@ -248,7 +254,7 @@ export default function ProductFilterCard({
                   <SelectValue placeholder="All spring types" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={ALL_OPTION}>All spring types</SelectItem>
+                  <SelectItem value={ALL_OPTION}>---</SelectItem>
                   {specs?.spring_types.map((springType) => (
                     <SelectItem key={springType} value={springType}>
                       {formatLabel(springType)}
@@ -271,7 +277,7 @@ export default function ProductFilterCard({
                   <SelectValue placeholder="All core materials" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={ALL_OPTION}>All core materials</SelectItem>
+                  <SelectItem value={ALL_OPTION}>---</SelectItem>
                   {specs?.core_materials.map((coreMaterial) => (
                     <SelectItem key={coreMaterial} value={coreMaterial}>
                       {formatLabel(coreMaterial)}
@@ -319,13 +325,16 @@ export default function ProductFilterCard({
 
         {error && <p className="text-sm text-destructive">{error}</p>}
 
-        <Button
-          variant={isQuickVariant ? "outline" : "default"}
-          className="w-full"
-          disabled={loading}
-        >
-          {isQuickVariant ? "View filters" : "Apply filters"}
-        </Button>
+        {isQuickVariant && (
+          <Button
+            variant="default"
+            className="w-full"
+            disabled={loading}
+            onClick={handleApplyFilters}
+          >
+            View filters
+          </Button>
+        )}
       </CardContent>
     </Card>
   )

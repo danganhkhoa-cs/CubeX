@@ -76,6 +76,7 @@ export default async function Page() {
                 brandName={brandMap.get(product.brand_id)}
                 categoryName={categoryMap.get(product.category_id)}
                 specs={product.specs}
+                href={`/products/${product.id}`}
               />
             ))}
           </div>
