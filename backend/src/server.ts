@@ -9,6 +9,7 @@ import { productRouter } from "./routes/productRoutes";
 import { orderRouter } from "./routes/orderRoutes";
 import { adminRouter } from "./routes/adminRoutes";
 import { uploadRouter } from "./routes/uploadRoutes";
+import { cartRouter } from "./routes/cartRoutes";
 
 const app = express();
 const PORT = process.env.PORT || 8000;
@@ -35,6 +36,7 @@ app.use("/api/auth", authRouter);
 app.use("/api/wallet", walletRouter);
 app.use("/api/products", productRouter);
 app.use("/api/orders", orderRouter);
+app.use("/api/cart", cartRouter);
 app.use("/api/upload", uploadRouter);
 
 app
