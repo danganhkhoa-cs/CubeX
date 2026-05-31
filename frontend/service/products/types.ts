@@ -85,9 +85,17 @@ export interface CreateProductResponse {
   product: Product[]
 }
 
+export interface ProductsPagination {
+  page: number
+  limit: number
+  total: number
+  total_pages: number
+}
+
 export interface GetProductsResponse {
   success: boolean
   products: Product[]
+  pagination: ProductsPagination
 }
 
 export interface GetProductResponse {

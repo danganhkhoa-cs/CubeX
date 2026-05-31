@@ -1,15 +1,15 @@
 import apiClient from "@/lib/api"
 import {
-  SignUpPayload,
+  SignUpRequest,
   SignUpResponse,
-  SignInPayload,
+  SignInRequest,
   SignInResponse,
   GetUserResponse,
   GetUserPublicResponse,
 } from "./types"
 
 export const authService = {
-  signup: async (payload: SignUpPayload): Promise<SignUpResponse> => {
+  signup: async (payload: SignUpRequest): Promise<SignUpResponse> => {
     const response = await apiClient.post<SignUpResponse>(
       "/auth/signup",
       payload
@@ -21,7 +21,7 @@ export const authService = {
 
     return response.data
   },
-  signin: async (payload: SignInPayload): Promise<SignInResponse> => {
+  signin: async (payload: SignInRequest): Promise<SignInResponse> => {
     const response = await apiClient.post<SignInResponse>(
       "/auth/signin",
       payload

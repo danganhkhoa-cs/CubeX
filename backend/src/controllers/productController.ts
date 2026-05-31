@@ -26,6 +26,13 @@ const updateProductSchema = z.object({
 	images: productImageSchema.optional().nullable(),
 });
 
+const getAllProductsSchema = z.object({
+	seller_id: z.string().optional(),
+	page: z.coerce.number().int().positive().default(1),
+	limit: z.coerce.number().int().positive().max(50).default(9),
+	sort_order: z.enum(["asc", "desc"]).optional(),
+});
+
 export async function getProductSpecs(
 	req: Request,
 	res: Response,
@@ -172,7 +179,21 @@ export async function getAllProducts(
 	res: Response,
 ): Promise<void> {
 	try {
-		const { seller_id } = req.query;
+		const parsed = getAllProductsSchema.safeParse(req.query);
+		if (!parsed.success) {
+			res.status(400).json({
+				success: false,
+				message: "Invalid query params",
+				details: parsed.error.flatten().fieldErrors,
+			});
+			return;
+		}
+		const {
+			seller_id,
+			page: pageNumber,
+			limit: limitNumber,
+			sort_order: sortOrder,
+		} = parsed.data;
 
 		const {
 			min_price,
@@ -233,16 +254,16 @@ export async function getAllProducts(
 
 		const { data, error } = await query;
 
-		if (error || !data || data.length === 0) {
-			res.status(404).json({
+		if (error) {
+			res.status(400).json({
 				success: false,
-				message: "Products not found",
+				message: error.message,
 			});
 			return;
 		}
 
 		// Filter by specs (JSONB fields) client-side
-		let filteredData = data;
+		let filteredData = data ?? [];
 
 		const specsFilters = {
 			size,
@@ -279,17 +300,29 @@ export async function getAllProducts(
 			}
 		}
 
-		if (filteredData.length === 0) {
-			res.status(404).json({
-				success: false,
-				message: "No products match the filters",
+		if (sortOrder) {
+			filteredData = [...filteredData].sort((a, b) => {
+				return sortOrder === "asc" ? a.price - b.price : b.price - a.price;
 			});
-			return;
 		}
+
+		const total = filteredData.length;
+		const totalPages = total === 0 ? 0 : Math.ceil(total / limitNumber);
+		const startIndex = (pageNumber - 1) * limitNumber;
+		const pagedData =
+			total === 0
+				? []
+				: filteredData.slice(startIndex, startIndex + limitNumber);
 
 		res.status(200).json({
 			success: true,
-			products: filteredData,
+			products: pagedData,
+			pagination: {
+				page: pageNumber,
+				limit: limitNumber,
+				total,
+				total_pages: totalPages,
+			},
 		});
 	} catch (e) {
 		console.error("Get all products error:", e);

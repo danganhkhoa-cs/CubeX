@@ -2,19 +2,29 @@
 
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { useParams } from "next/navigation"
+import {
+  useParams,
+  usePathname,
+  useRouter,
+  useSearchParams,
+} from "next/navigation"
+import { ArrowLeft } from "lucide-react"
 
 import ProductDetailSkeleton from "@/components/ProductDetailSkeleton"
+import SellerInfoSkeleton from "@/components/SellerInfoSkeleton"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { useFilter } from "@/hooks/filter/useFilter"
+import { useAuth } from "@/hooks/auth/useAuth"
 import { authService } from "@/service/auth"
+import { cartService } from "@/service/cart"
 import { productService } from "@/service/products"
 import type { ProductDetail } from "@/service/products/types"
 import type { UserProfilePublic } from "@/service/auth/types"
+import { toast } from "sonner"
 
 const specsLabels: Record<string, string> = {
   normal: "Normal",
@@ -58,12 +68,29 @@ function getInitials(name: string) {
 
 export default function Page() {
   const params = useParams<{ id: string }>()
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const productId = Array.isArray(params?.id) ? params.id[0] : params?.id
   const { brands, categories } = useFilter()
+  const { user } = useAuth()
   const [product, setProduct] = useState<ProductDetail | null>(null)
   const [seller, setSeller] = useState<UserProfilePublic | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [sellerLoading, setSellerLoading] = useState(false)
+  const [isAdding, setIsAdding] = useState(false)
+  const [addedProductId, setAddedProductId] = useState<string | null>(null)
+  const returnTo = searchParams.get("returnTo") || ""
+  const showBack = returnTo.startsWith("/products")
+  const currentPath = useMemo(() => {
+    const query = searchParams.toString()
+    return query ? `${pathname}?${query}` : pathname
+  }, [pathname, searchParams])
+  const sellerProductsHref = useMemo(() => {
+    if (!seller) return ""
+    return `/products?seller_id=${seller.user_id}&returnTo=${encodeURIComponent(currentPath)}`
+  }, [currentPath, seller])
 
   useEffect(() => {
     let mounted = true
@@ -73,23 +100,33 @@ export default function Page() {
 
       setLoading(true)
       setError(null)
+      setSeller(null)
+      setSellerLoading(false)
 
       try {
         const data = await productService.getProductById(productId)
         if (mounted) {
           setProduct(data)
+          setLoading(false)
         }
 
         try {
+          if (mounted) {
+            setSellerLoading(true)
+          }
           const sellerResponse = await authService.getUserPublicInfo(
             data.seller_id
           )
           if (mounted && sellerResponse.success) {
-            setSeller(sellerResponse.user)
+            setSeller(sellerResponse.user ?? null)
           }
         } catch {
           if (mounted) {
             setSeller(null)
+          }
+        } finally {
+          if (mounted) {
+            setSellerLoading(false)
           }
         }
       } catch (err) {
@@ -97,10 +134,8 @@ export default function Page() {
           setError(
             err instanceof Error ? err.message : "Failed to load product"
           )
-        }
-      } finally {
-        if (mounted) {
           setLoading(false)
+          setSellerLoading(false)
         }
       }
     }
@@ -111,6 +146,36 @@ export default function Page() {
       mounted = false
     }
   }, [productId])
+
+  const isAdded = !!productId && addedProductId === productId
+
+  const handleAddToCart = async () => {
+    if (!productId) {
+      console.error("Product ID is required")
+      return
+    }
+
+    if (!user) {
+      router.push("/signin")
+      return
+    }
+
+    try {
+      setIsAdding(true)
+      const response = await cartService.addToCart({ product_id: productId })
+      if (response.success) {
+        setAddedProductId(productId)
+        toast.success("Added to cart")
+      } else {
+        toast.error(response.message || "Failed to add to cart")
+      }
+    } catch (addError) {
+      console.error("Failed to add to cart:", addError)
+      toast.error("Failed to add to cart")
+    } finally {
+      setIsAdding(false)
+    }
+  }
 
   const priceLabel = useMemo(() => {
     if (!product) return ""
@@ -145,6 +210,17 @@ export default function Page() {
 
   return (
     <main className="space-y-6">
+      {showBack && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="inline-flex items-center gap-2"
+          onClick={() => router.push(returnTo)}
+        >
+          <ArrowLeft className="size-4" />
+          Back
+        </Button>
+      )}
       <h1 className="text-2xl font-semibold">{product.title}</h1>
 
       <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
@@ -229,9 +305,11 @@ export default function Page() {
               <p className="text-xs tracking-wide text-muted-foreground uppercase">
                 Seller
               </p>
-              {seller ? (
+              {sellerLoading ? (
+                <SellerInfoSkeleton />
+              ) : seller ? (
                 <Link
-                  href={`/profile/${seller.user_id}`}
+                  href={sellerProductsHref}
                   className="flex w-fit items-center gap-3 py-2 text-foreground"
                 >
                   <Avatar className="h-10 w-10">
@@ -262,10 +340,12 @@ export default function Page() {
             </div>
             <Button
               size="sm"
-              variant="default"
+              variant={isAdded ? "secondary" : "default"}
               className="text-md w-full font-extrabold"
+              onClick={handleAddToCart}
+              disabled={isAdding || isAdded}
             >
-              Add to cart
+              {isAdded ? "Added" : isAdding ? "Adding..." : "Add to cart"}
             </Button>
           </CardContent>
         </Card>

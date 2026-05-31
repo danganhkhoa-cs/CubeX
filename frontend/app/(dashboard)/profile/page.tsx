@@ -1,6 +1,8 @@
 "use client"
 
 import Link from "next/link"
+import { useRouter, useSearchParams } from "next/navigation"
+import { ArrowLeft } from "lucide-react"
 
 import { useAuth } from "@/hooks/auth/useAuth"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -39,7 +41,11 @@ function ProfileField({
 }
 
 export default function ProfilePage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const { user, loading } = useAuth()
+  const returnTo = searchParams.get("returnTo") || ""
+  const showBack = returnTo.startsWith("/products")
 
   if (loading) {
     return (
@@ -68,6 +74,17 @@ export default function ProfilePage() {
 
   return (
     <div className="space-y-6">
+      {showBack && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="inline-flex items-center gap-2"
+          onClick={() => router.push(returnTo)}
+        >
+          <ArrowLeft className="size-4" />
+          Back
+        </Button>
+      )}
       <Card className="border-border/70 bg-card/90 shadow-sm">
         <CardHeader className="space-y-4">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

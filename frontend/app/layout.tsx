@@ -3,6 +3,7 @@ import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { cn } from "@/lib/utils"
 import { AuthProvider } from "@/hooks/auth/useAuth"
+import { CartProvider } from "@/hooks/cart/useCart"
 import { FilterProvider } from "@/hooks/filter/useFilter"
 import { Toaster } from "@/components/ui/sonner"
 const roboto = Roboto({ subsets: ["latin"], variable: "--font-sans" })
@@ -31,10 +32,12 @@ export default function RootLayout({
       <body>
         <ThemeProvider>
           <AuthProvider>
-            <FilterProvider>
-              {children}
-              <Toaster position="top-center" />
-            </FilterProvider>
+            <CartProvider>
+              <FilterProvider>
+                {children}
+                <Toaster position="top-center" />
+              </FilterProvider>
+            </CartProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>

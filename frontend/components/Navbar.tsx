@@ -1,7 +1,8 @@
 "use client"
 
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
+import { useMemo } from "react"
 
 import { useAuth } from "@/hooks/auth/useAuth"
 import { authService } from "@/service/auth"
@@ -16,10 +17,8 @@ import {
 } from "@/components/ui/dropdown-menu"
 
 const dashboardLinks = [
-  { href: "/products", label: "Products" },
   { href: "/products/create", label: "Create listing" },
   { href: "/orders", label: "Orders" },
-  { href: "/wallet", label: "Wallet" },
 ]
 
 function getInitials(name: string) {
@@ -34,9 +33,24 @@ function getInitials(name: string) {
 
 export default function Navbar() {
   const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const { user, loading, refresh } = useAuth()
   const displayName = user?.full_name || user?.username || user?.email || ""
   const initials = displayName ? getInitials(displayName) : "U"
+
+  const currentPath = useMemo(() => {
+    const query = searchParams.toString()
+    return query ? `${pathname}?${query}` : pathname
+  }, [pathname, searchParams])
+
+  const returnTo = pathname.startsWith("/products") ? currentPath : ""
+
+  const withReturnTo = (href: string) => {
+    if (!returnTo) return href
+    const separator = href.includes("?") ? "&" : "?"
+    return `${href}${separator}returnTo=${encodeURIComponent(returnTo)}`
+  }
 
   const handleLogout = async () => {
     try {
@@ -59,6 +73,12 @@ export default function Navbar() {
           </Link>
           {user && (
             <nav className="hidden items-center gap-4 text-sm text-muted-foreground md:flex">
+              <Link
+                href="/products?fresh=1"
+                className="transition hover:text-foreground"
+              >
+                Products
+              </Link>
               {dashboardLinks.map((item) => (
                 <Link
                   key={item.href}
@@ -102,7 +122,21 @@ export default function Navbar() {
               <DropdownMenuContent align="end" side="bottom" sideOffset={12}>
                 <DropdownMenuItem
                   onSelect={() => {
-                    router.push("/profile")
+                    router.push(withReturnTo("/cart"))
+                  }}
+                >
+                  Cart
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => {
+                    router.push(withReturnTo("/wallet"))
+                  }}
+                >
+                  Wallet
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => {
+                    router.push(withReturnTo("/profile"))
                   }}
                 >
                   See profile

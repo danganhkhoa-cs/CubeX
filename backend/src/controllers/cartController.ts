@@ -83,7 +83,7 @@ export async function addToCart(
 
 		const { data, error } = await supabase
 			.from("cart_items")
-			.upsert([
+			.insert([
 				{
 					user_id,
 					product_id,
@@ -94,7 +94,7 @@ export async function addToCart(
 		if (error) {
 			res.status(400).json({
 				success: false,
-				message: error.message,
+				message: "Product is already in cart or an error occurred",
 			});
 			return;
 		}

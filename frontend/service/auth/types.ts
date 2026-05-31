@@ -1,4 +1,4 @@
-export interface SignUpPayload {
+export interface SignUpRequest {
   full_name: string
   username: string
   email: string
@@ -54,19 +54,13 @@ export interface SignUpResponseData {
   session: Session | null
 }
 
-export interface SignUpSuccessResponse {
+export interface SignUpResponse {
   success: true
-  data: SignUpResponseData
+  data?: SignUpResponseData
+  message?: string
 }
 
-export interface SignUpErrorResponse {
-  success: false
-  message: string
-}
-
-export type SignUpResponse = SignUpSuccessResponse | SignUpErrorResponse
-
-export interface SignInPayload {
+export interface SignInRequest {
   email: string
   password: string
 }
@@ -122,17 +116,11 @@ export interface SignInUser {
   is_anonymous: boolean
 }
 
-export interface SignInSuccessResponse {
+export interface SignInResponse {
   success: true
-  user: SignInUser
+  user?: SignInUser
+  message?: string
 }
-
-export interface SignInErrorResponse {
-  success: false
-  message: string
-}
-
-export type SignInResponse = SignInSuccessResponse | SignInErrorResponse
 
 export interface UserProfile {
   user_id: string
@@ -149,17 +137,11 @@ export interface UserProfile {
   email: string
 }
 
-export interface GetUserSuccessResponse {
+export interface GetUserResponse {
   success: true
-  user: UserProfile
+  user?: UserProfile
+  message?: string
 }
-
-export interface GetUserErrorResponse {
-  success: false
-  message: string
-}
-
-export type GetUserResponse = GetUserSuccessResponse | GetUserErrorResponse
 
 export interface UserProfilePublic {
   user_id: string
@@ -171,16 +153,8 @@ export interface UserProfilePublic {
   email: string
 }
 
-export interface GetUserPublicSuccessResponse {
+export interface GetUserPublicResponse {
   success: true
-  user: UserProfilePublic
+  user?: UserProfilePublic
+  message?: string
 }
-
-export interface GetUserPublicErrorResponse {
-  success: false
-  message: string
-}
-
-export type GetUserPublicResponse =
-  | GetUserPublicSuccessResponse
-  | GetUserPublicErrorResponse

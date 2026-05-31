@@ -12,11 +12,13 @@ import { Separator } from "@/components/ui/separator"
 
 export default async function Page() {
   // Fetch products + brands/categories to resolve names
-  const [products, brands, categories] = await Promise.all([
-    productService.getProducts(),
+  const [productsResponse, brands, categories] = await Promise.all([
+    productService.getProducts({ page: 1, limit: 12 }),
     productService.getBrands(),
     productService.getCategories(),
   ])
+
+  const products = productsResponse.products
 
   const brandMap = new Map(brands.map((b) => [b.id, b.name]))
   const categoryMap = new Map(categories.map((c) => [c.id, c.name]))
@@ -24,9 +26,9 @@ export default async function Page() {
   const featured = products.slice(0, 4)
 
   return (
-    <div className="min-h-svh bg-background">
+    <div className="flex min-h-svh flex-col bg-background">
       <Navbar />
-      <main className="mx-auto w-full max-w-7xl px-6 py-10">
+      <main className="mx-auto w-full max-w-7xl flex-1 px-6 py-10">
         {/* Sonner toast displays signin success; no server-side alert needed */}
         <section className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
           <div className="space-y-5">
@@ -70,6 +72,7 @@ export default async function Page() {
             {featured.map((product) => (
               <ProductCard
                 key={product.id}
+                productId={product.id}
                 title={product.title}
                 price={product.price}
                 images={product.images}

@@ -16,6 +16,13 @@ import type {
   ProductDetail,
 } from "./types"
 
+type ProductListParams = {
+  page?: number
+  limit?: number
+  sellerId?: string
+  sortOrder?: "asc" | "desc"
+}
+
 export const productService = {
   getBrands: async (): Promise<ProductBrand[]> => {
     const response = await apiClient.get<GetBrandsResponse>("/products/brands")
@@ -45,28 +52,46 @@ export const productService = {
 
     return response.data.specs
   },
-  getProducts: async (): Promise<Product[]> => {
-    const response = await apiClient.get<GetProductsResponse>("/products")
+  getProducts: async (
+    params: ProductListParams = {}
+  ): Promise<GetProductsResponse> => {
+    const response = await apiClient.get<GetProductsResponse>("/products", {
+      params: {
+        page: params.page,
+        limit: params.limit,
+        seller_id: params.sellerId,
+        sort_order: params.sortOrder,
+      },
+    })
 
     if (!response.data.success) {
       throw new Error("Failed to load products")
     }
 
-    return response.data.products
+    return response.data
   },
   getFilteredProducts: async (
-    payload: FilterProductsRequest
-  ): Promise<Product[]> => {
+    payload: FilterProductsRequest,
+    params: ProductListParams = {}
+  ): Promise<GetProductsResponse> => {
     const response = await apiClient.post<GetProductsResponse>(
       "/products/filter",
-      payload
+      payload,
+      {
+        params: {
+          page: params.page,
+          limit: params.limit,
+          seller_id: params.sellerId,
+          sort_order: params.sortOrder,
+        },
+      }
     )
 
     if (!response.data.success) {
       throw new Error("Failed to load filtered products")
     }
 
-    return response.data.products
+    return response.data
   },
   getProductById: async (id: string): Promise<ProductDetail> => {
     const response = await apiClient.get<GetProductResponse>(`/products/${id}`)

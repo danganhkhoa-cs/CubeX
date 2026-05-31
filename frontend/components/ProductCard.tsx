@@ -1,3 +1,5 @@
+"use client"
+
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -8,10 +10,17 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { useState } from "react"
+import { useAuth } from "@/hooks/auth/useAuth"
+import { useCart } from "@/hooks/cart/useCart"
+import { cartService } from "@/service/cart"
+import { toast } from "sonner"
 
 type ProductCardProps = {
   title: string
   price: number
+  productId?: string
   images?: string[]
   brandName?: string
   categoryName?: string
@@ -49,16 +58,54 @@ const specsCustomizationLabels: Record<string, string> = {
 export default function ProductCard({
   title,
   price,
+  productId,
   images,
   brandName,
   categoryName,
   specs,
   href,
 }: ProductCardProps) {
+  const router = useRouter()
+  const { user } = useAuth()
+  const { isInCart, markProductAdded } = useCart()
+  const [isLoading, setIsLoading] = useState(false)
+
   const priceLabel = (price / 100).toLocaleString("en-US", {
     style: "currency",
     currency: "USD",
   })
+
+  const isAddedForCurrentUser = !!user && isInCart(productId)
+
+  const handleAddToCart = async () => {
+    if (!productId) {
+      console.error("Product ID is required")
+      return
+    }
+
+    // Check if user is logged in
+    if (!user) {
+      router.push("/signin")
+      return
+    }
+
+    try {
+      setIsLoading(true)
+      const response = await cartService.addToCart({ product_id: productId })
+
+      if (response.success) {
+        markProductAdded(productId)
+        toast.success("Added to cart")
+      } else {
+        toast.error(response.message || "Failed to add to cart")
+      }
+    } catch (error) {
+      console.error("Failed to add to cart:", error)
+      toast.error("Failed to add to cart")
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const details = (
     <>
@@ -123,10 +170,12 @@ export default function ProductCard({
         </span>
         <Button
           size="sm"
-          variant="default"
+          variant={isAddedForCurrentUser ? "secondary" : "default"}
           className="text-md w-full font-bold"
+          onClick={handleAddToCart}
+          disabled={isLoading || isAddedForCurrentUser}
         >
-          Add to cart
+          {isAddedForCurrentUser ? "Added" : isLoading ? "Adding..." : "Add to cart"}
         </Button>
       </CardFooter>
     </Card>
