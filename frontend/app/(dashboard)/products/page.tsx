@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/pagination"
 import { Separator } from "@/components/ui/separator"
 import { cn } from "@/lib/utils"
+import { useAuth } from "@/hooks/auth/useAuth"
 
 type ProductItem = {
   id: string
@@ -101,6 +102,7 @@ const DEFAULT_LIMIT = 9
 
 const ProductsPage = () => {
   const [products, setProducts] = useState<ProductItem[]>([])
+  const { user, loading: isAuthLoading } = useAuth()
   const [loading, setLoading] = useState(false)
   const [pagination, setPagination] = useState<{
     page: number
@@ -119,6 +121,7 @@ const ProductsPage = () => {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const sellerId = searchParams.get("seller_id") || ""
+  const isOwnProfile = sellerId === user?.user_id
   const returnTo = searchParams.get("returnTo") || ""
   const fresh = searchParams.get("fresh") === "1"
   const page = useMemo(() => {
@@ -184,10 +187,11 @@ const ProductsPage = () => {
   }, [filterSignature, page, updatePage])
 
   useEffect(() => {
+    if (isAuthLoading) return
     let mounted = true
 
     async function loadSeller() {
-      if (!sellerId) {
+      if (!sellerId || sellerId === user?.user_id) {
         if (mounted) {
           setSellerProfile(null)
           setSellerError(null)
@@ -228,9 +232,10 @@ const ProductsPage = () => {
     return () => {
       mounted = false
     }
-  }, [sellerId])
+  }, [sellerId, user?.user_id, isAuthLoading])
 
   useEffect(() => {
+    if (isAuthLoading) return
     let mounted = true
 
     async function load() {
@@ -248,9 +253,15 @@ const ProductsPage = () => {
               product.title.toLowerCase().includes(filters.search.toLowerCase())
             )
           : response.products
+        const visibleItems =
+          sellerId !== user?.user_id
+            ? filteredItems.filter(
+                (product) => product.seller_id !== user?.user_id
+              )
+            : filteredItems
 
         if (mounted) {
-          setProducts(filteredItems)
+          setProducts(visibleItems)
           setPagination(response.pagination)
         }
       } catch (err) {
@@ -271,7 +282,7 @@ const ProductsPage = () => {
     return () => {
       mounted = false
     }
-  }, [filters, page, sellerId, sortBy])
+  }, [filters, page, sellerId, sortBy, user?.user_id])
 
   const currentPage = pagination?.page ?? page
   const totalPages = pagination?.total_pages ?? 0
@@ -298,7 +309,9 @@ const ProductsPage = () => {
   const headerTitle = sellerProfile
     ? `${sellerProfile.full_name || sellerProfile.username}'s products`
     : sellerId
-      ? "Seller products"
+      ? isOwnProfile
+        ? "My products"
+        : "Seller's products"
       : "Products"
   const headerDescription = sellerProfile
     ? "Browse everything currently listed by this seller."
@@ -331,78 +344,76 @@ const ProductsPage = () => {
           Back
         </Button>
       )}
-      {sellerId && (
-        sellerLoading ? (
+      {sellerId &&
+        (sellerLoading || isAuthLoading ? (
           <ProfileSkeleton />
         ) : (
-          <Card className="border-border/70 bg-card/90 shadow-sm">
-            <CardHeader className="space-y-4">
-              {sellerError ? (
-                <div className="text-sm text-destructive">{sellerError}</div>
-              ) : sellerProfile ? (
-                <>
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-4">
-                      <Avatar className="h-16 w-16">
-                        {sellerProfile.avatar_url && (
-                          <AvatarImage
-                            src={sellerProfile.avatar_url}
-                            alt={
-                              sellerProfile.full_name || sellerProfile.username
-                            }
-                          />
-                        )}
-                        <AvatarFallback className="bg-primary text-2xl font-semibold text-background">
-                          {sellerInitials}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <CardTitle className="text-2xl font-bold">
-                          {sellerProfile.full_name || sellerProfile.username}
-                        </CardTitle>
-                        <p className="text-sm text-muted-foreground">
-                          {sellerProfile.username}
-                        </p>
+          !isOwnProfile && (
+            <Card className="border-border/70 bg-card/90 shadow-sm">
+              <CardHeader className="space-y-4">
+                {sellerError ? (
+                  <div className="text-sm text-destructive">{sellerError}</div>
+                ) : sellerProfile ? (
+                  <>
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-4">
+                        <Avatar className="h-16 w-16">
+                          {sellerProfile.avatar_url && (
+                            <AvatarImage
+                              src={sellerProfile.avatar_url}
+                              alt={
+                                sellerProfile.full_name ||
+                                sellerProfile.username
+                              }
+                            />
+                          )}
+                          <AvatarFallback className="bg-primary text-2xl font-semibold text-background">
+                            {sellerInitials}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <CardTitle className="text-2xl font-bold">
+                            {sellerProfile.full_name || sellerProfile.username}
+                          </CardTitle>
+                          <p className="text-sm text-muted-foreground">
+                            {sellerProfile.username}
+                          </p>
+                        </div>
                       </div>
+                      <Badge variant="secondary">Public profile</Badge>
                     </div>
-                    <Badge variant="secondary">Public profile</Badge>
+                    <p className="max-w-2xl text-sm text-muted-foreground">
+                      {sellerProfile.bio || "No bio."}
+                    </p>
+                  </>
+                ) : (
+                  <div className="text-sm text-muted-foreground">
+                    Seller profile not found.
                   </div>
-                  <p className="max-w-2xl text-sm text-muted-foreground">
-                    {sellerProfile.bio || "No bio."}
-                  </p>
+                )}
+              </CardHeader>
+              {sellerProfile && (
+                <>
+                  <Separator />
+                  <CardContent className="space-y-6 pt-6">
+                    <div className="grid grid-cols-3 gap-4">
+                      <ProfileField
+                        label="Full name"
+                        value={sellerProfile.full_name}
+                      />
+                      <ProfileField
+                        label="Username"
+                        value={sellerProfile.username}
+                      />
+                      <ProfileField label="Email" value={sellerProfile.email} />
+                      <ProfileField label="Phone" value={sellerProfile.phone} />
+                    </div>
+                  </CardContent>
                 </>
-              ) : (
-                <div className="text-sm text-muted-foreground">
-                  Seller profile not found.
-                </div>
               )}
-            </CardHeader>
-            {sellerProfile && (
-              <>
-                <Separator />
-                <CardContent className="space-y-6 pt-6">
-                  <div className="grid grid-cols-3 gap-4">
-                    <ProfileField
-                      label="Full name"
-                      value={sellerProfile.full_name}
-                    />
-                    <ProfileField
-                      label="Username"
-                      value={sellerProfile.username}
-                    />
-                    <ProfileField label="Email" value={sellerProfile.email} />
-                    <ProfileField label="Phone" value={sellerProfile.phone} />
-                    <ProfileField
-                      label="Avatar"
-                      value={sellerProfile.avatar_url}
-                    />
-                  </div>
-                </CardContent>
-              </>
-            )}
-          </Card>
-        )
-      )}
+            </Card>
+          )
+        ))}
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold">{headerTitle}</h1>
@@ -430,7 +441,7 @@ const ProductsPage = () => {
 
         <div className="space-y-6">
           <div className="grid auto-rows-max gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {loading
+            {loading || isAuthLoading
               ? Array.from({ length: 6 }).map((_, index) => (
                   <ProductCardSkeleton key={`product-skeleton-${index}`} />
                 ))
@@ -453,6 +464,7 @@ const ProductsPage = () => {
                       categoryName={category}
                       specs={product.specs}
                       href={`/products/${product.id}?returnTo=${encodedReturnTo}`}
+                      isHiddenButton={isOwnProfile}
                     />
                   )
                 })}

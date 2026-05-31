@@ -61,7 +61,7 @@ export async function addToCart(
 
 		const { data: product, error: productError } = await supabase
 			.from("products")
-			.select("is_sold, is_deleted")
+			.select("is_sold, is_deleted, seller_id")
 			.eq("id", product_id)
 			.single();
 
@@ -77,6 +77,14 @@ export async function addToCart(
 			res.status(400).json({
 				success: false,
 				message: "Product is no longer available",
+			});
+			return;
+		}
+
+		if (product.seller_id === user_id) {
+			res.status(400).json({
+				success: false,
+				message: "You cannot add your own product to the cart",
 			});
 			return;
 		}

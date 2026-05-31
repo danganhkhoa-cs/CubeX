@@ -8,7 +8,7 @@ import {
   useRouter,
   useSearchParams,
 } from "next/navigation"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, Layers3, Settings2, Tag } from "lucide-react"
 
 import ProductDetailSkeleton from "@/components/ProductDetailSkeleton"
 import SellerInfoSkeleton from "@/components/SellerInfoSkeleton"
@@ -17,8 +17,10 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
+import { Spinner } from "@/components/ui/spinner"
 import { useFilter } from "@/hooks/filter/useFilter"
 import { useAuth } from "@/hooks/auth/useAuth"
+import { useCart } from "@/hooks/cart/useCart"
 import { authService } from "@/service/auth"
 import { cartService } from "@/service/cart"
 import { productService } from "@/service/products"
@@ -56,6 +58,12 @@ function formatSpecValue(value: string) {
   return specsLabels[value] || value
 }
 
+function formatOrderStatus(value: string) {
+  return value
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (character) => character.toUpperCase())
+}
+
 function getInitials(name: string) {
   const parts = name.trim().split(" ").filter(Boolean)
   if (!parts.length) return "U"
@@ -73,16 +81,27 @@ export default function Page() {
   const searchParams = useSearchParams()
   const productId = Array.isArray(params?.id) ? params.id[0] : params?.id
   const { brands, categories } = useFilter()
-  const { user } = useAuth()
+  const { user, loading: isAuthLoading } = useAuth()
+  const { isInCart, markProductAdded } = useCart()
+  const orderTrackingId = searchParams.get("orderTrackingId") || ""
+  const orderStatus = searchParams.get("orderStatus") || ""
+  const orderRole = searchParams.get("orderRole") || ""
   const [product, setProduct] = useState<ProductDetail | null>(null)
   const [seller, setSeller] = useState<UserProfilePublic | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [sellerLoading, setSellerLoading] = useState(false)
   const [isAdding, setIsAdding] = useState(false)
-  const [addedProductId, setAddedProductId] = useState<string | null>(null)
+  const isOwnProfile = product?.seller_id === user?.user_id
   const returnTo = searchParams.get("returnTo") || ""
-  const showBack = returnTo.startsWith("/products")
+  const showBack =
+    returnTo.startsWith("/products") ||
+    returnTo.startsWith("/cart") ||
+    returnTo.startsWith("/orders")
+  const isOrderContext =
+    !!orderTrackingId &&
+    !!orderStatus &&
+    (orderRole === "buyer" || orderRole === "seller")
   const currentPath = useMemo(() => {
     const query = searchParams.toString()
     return query ? `${pathname}?${query}` : pathname
@@ -91,6 +110,10 @@ export default function Page() {
     if (!seller) return ""
     return `/products?seller_id=${seller.user_id}&returnTo=${encodeURIComponent(currentPath)}`
   }, [currentPath, seller])
+  const updateHref = useMemo(() => {
+    if (!productId) return ""
+    return `/products/${productId}/edit?returnTo=${encodeURIComponent(currentPath)}`
+  }, [currentPath, productId])
 
   useEffect(() => {
     let mounted = true
@@ -147,7 +170,8 @@ export default function Page() {
     }
   }, [productId])
 
-  const isAdded = !!productId && addedProductId === productId
+  const isAdded = !!productId && isInCart(productId)
+  const isUnavailable = !!product && (product.is_sold || product.is_deleted)
 
   const handleAddToCart = async () => {
     if (!productId) {
@@ -164,7 +188,7 @@ export default function Page() {
       setIsAdding(true)
       const response = await cartService.addToCart({ product_id: productId })
       if (response.success) {
-        setAddedProductId(productId)
+        markProductAdded(productId)
         toast.success("Added to cart")
       } else {
         toast.error(response.message || "Failed to add to cart")
@@ -194,7 +218,7 @@ export default function Page() {
   const sellerName = seller?.full_name || seller?.username
   const sellerInitials = sellerName ? getInitials(sellerName) : "U"
 
-  if (loading) {
+  if (loading || isAuthLoading || sellerLoading) {
     return <ProductDetailSkeleton />
   }
 
@@ -265,10 +289,16 @@ export default function Page() {
             <Separator />
             <div className="flex flex-wrap gap-2">
               <Badge variant="secondary">
-                {brandName?.toUpperCase() || product.brand_id}
+                <span className="inline-flex items-center gap-1.5">
+                  <Tag className="size-3.5" />
+                  {brandName?.toUpperCase() || product.brand_id}
+                </span>
               </Badge>
               <Badge variant="ghost">
-                {categoryName || product.category_id}
+                <span className="inline-flex items-center gap-1.5">
+                  <Layers3 className="size-3.5" />
+                  {categoryName || product.category_id}
+                </span>
               </Badge>
             </div>
             {product.specs && (
@@ -278,7 +308,10 @@ export default function Page() {
                     if (Array.isArray(value)) {
                       return value.map((item) => (
                         <Badge key={`${key}-${item}`} variant="outline">
-                          {specsCustomizationLabels[item] || item}
+                          <span className="inline-flex items-center gap-1.5">
+                            <Settings2 className="size-3.5" />
+                            {specsCustomizationLabels[item] || item}
+                          </span>
                         </Badge>
                       ))
                     }
@@ -287,14 +320,20 @@ export default function Page() {
                   if (Array.isArray(value)) {
                     return value.map((item) => (
                       <Badge key={`${key}-${item}`} variant="outline">
-                        {formatSpecValue(item)}
+                        <span className="inline-flex items-center gap-1.5">
+                          <Settings2 className="size-3.5" />
+                          {formatSpecValue(item)}
+                        </span>
                       </Badge>
                     ))
                   }
 
                   return (
                     <Badge key={key} variant="outline">
-                      {formatSpecValue(value)}
+                      <span className="inline-flex items-center gap-1.5">
+                        <Settings2 className="size-3.5" />
+                        {formatSpecValue(value)}
+                      </span>
                     </Badge>
                   )
                 })}
@@ -338,15 +377,52 @@ export default function Page() {
                 </p>
               )}
             </div>
-            <Button
-              size="sm"
-              variant={isAdded ? "secondary" : "default"}
-              className="text-md w-full font-extrabold"
-              onClick={handleAddToCart}
-              disabled={isAdding || isAdded}
-            >
-              {isAdded ? "Added" : isAdding ? "Adding..." : "Add to cart"}
-            </Button>
+            {isOrderContext ? (
+              <Button
+                size="sm"
+                className="text-md w-full font-extrabold"
+                disabled
+              >
+                {formatOrderStatus(orderStatus)}
+              </Button>
+            ) : isOwnProfile ? (
+              <Button
+                size="sm"
+                className="text-md w-full font-extrabold"
+                onClick={() => router.push(updateHref)}
+                disabled={isUnavailable || !updateHref}
+              >
+                {isUnavailable ? "Update unavailable" : "Update listing"}
+              </Button>
+            ) : isUnavailable ? (
+              <Button
+                size="sm"
+                variant="destructive"
+                className="text-md w-full font-extrabold"
+                disabled
+              >
+                Unavailable
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant={isAdded ? "secondary" : "default"}
+                className="text-md w-full font-extrabold"
+                onClick={handleAddToCart}
+                disabled={isAdding || isAdded}
+              >
+                {isAdded ? (
+                  "Added"
+                ) : isAdding ? (
+                  <span className="inline-flex items-center gap-2">
+                    <Spinner />
+                    Adding...
+                  </span>
+                ) : (
+                  "Add to cart"
+                )}
+              </Button>
+            )}
           </CardContent>
         </Card>
       </div>

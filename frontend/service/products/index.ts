@@ -11,6 +11,8 @@ import type {
   FilterProductsRequest,
   CreateProductRequest,
   CreateProductResponse,
+  UpdateProductRequest,
+  UpdateProductResponse,
   UploadImagesResponse,
   GetProductResponse,
   ProductDetail,
@@ -137,6 +139,21 @@ export const productService = {
 
     if (!response.data.success) {
       throw new Error("Failed to create listing")
+    }
+
+    return response.data.product
+  },
+  updateProduct: async (
+    id: string,
+    payload: UpdateProductRequest
+  ): Promise<Product[]> => {
+    const response = await apiClient.patch<UpdateProductResponse>(
+      `/products/${id}`,
+      payload
+    )
+
+    if (!response.data.success) {
+      throw new Error("Failed to update listing")
     }
 
     return response.data.product

@@ -6,6 +6,8 @@ import {
   SignInResponse,
   GetUserResponse,
   GetUserPublicResponse,
+  UpdateProfileRequest,
+  UpdateProfileResponse,
 } from "./types"
 
 export const authService = {
@@ -45,6 +47,48 @@ export const authService = {
     const response = await apiClient.get<GetUserPublicResponse>(
       `/auth/user/${userId}`
     )
+
+    return response.data
+  },
+  updateProfile: async (
+    payload: UpdateProfileRequest
+  ): Promise<UpdateProfileResponse> => {
+    const formData = new FormData()
+    if (payload.full_name !== undefined) {
+      formData.append("full_name", payload.full_name)
+    }
+    if (payload.bio !== undefined) {
+      formData.append("bio", payload.bio)
+    }
+    if (payload.street !== undefined) {
+      formData.append("street", payload.street)
+    }
+    if (payload.district !== undefined) {
+      formData.append("district", payload.district)
+    }
+    if (payload.city !== undefined) {
+      formData.append("city", payload.city)
+    }
+    if (payload.phone !== undefined) {
+      formData.append("phone", payload.phone)
+    }
+    if (payload.avatar) {
+      formData.append("avatar", payload.avatar)
+    }
+
+    const response = await apiClient.patch<UpdateProfileResponse>(
+      "/auth/user",
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      }
+    )
+
+    if (!response.data.success) {
+      throw new Error(response.data.message)
+    }
 
     return response.data
   },

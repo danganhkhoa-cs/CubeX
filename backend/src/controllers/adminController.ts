@@ -8,10 +8,7 @@ export async function getAllDisputes(
 	res: Response,
 ): Promise<void> {
 	try {
-		const { data, error } = await supabase
-			.from("orders")
-			.select("*")
-			.eq("status", "dispute");
+		const { data, error } = await supabase.from("disputes").select("*");
 
 		if (error) {
 			res.status(400).json({
@@ -36,8 +33,7 @@ export async function resolveDispute(
 	res: Response,
 ): Promise<void> {
 	try {
-		const { tracking_id } = req.params;
-		const { resolution } = req.body;
+		const { resolution, tracking_id } = req.body;
 
 		if (!["refund_buyer", "release_to_seller"].includes(resolution)) {
 			res.status(400).json({
@@ -123,6 +119,62 @@ export async function updateAdminConfig(
 		});
 	} catch (e) {
 		console.error("Update config error:", e);
+		sendServerError(res);
+	}
+}
+
+export async function getAllOrders(
+	req: AuthRequest,
+	res: Response,
+): Promise<void> {
+	try {
+		const { data, error } = await supabase
+			.from("orders")
+			.select("*")
+			.order("created_at", { ascending: false });
+
+		if (error) {
+			res.status(400).json({
+				success: false,
+				message: error.message,
+			});
+			return;
+		}
+
+		res.status(200).json({
+			success: true,
+			orders: data,
+		});
+	} catch (e) {
+		console.error("Get all orders error:", e);
+		sendServerError(res);
+	}
+}
+
+export async function getAllTransactions(
+	req: AuthRequest,
+	res: Response,
+): Promise<void> {
+	try {
+		const { data, error } = await supabase
+			.from("transactions")
+			.select("*")
+			.order("created_at", { ascending: false });
+
+		if (error) {
+			res.status(400).json({
+				success: false,
+				message: error.message,
+			});
+			return;
+		}
+
+		res.status(200).json({
+			success: true,
+			transactions: data,
+		});
+	} catch (e) {
+		console.error("Get all transactions error:", e);
 		sendServerError(res);
 	}
 }

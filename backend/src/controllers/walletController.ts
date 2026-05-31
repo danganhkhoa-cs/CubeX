@@ -129,7 +129,15 @@ export async function getTransactionHistory(
 
 		const { data, error } = await supabase
 			.from("transactions")
-			.select("id, order_id, amount, type, created_at")
+			.select(
+				`
+				id, 
+				order_id,
+				orders (tracking_id),
+				amount,
+				type,
+				created_at`,
+			)
 			.eq("wallet_id", wallet_id)
 			.order("created_at", { ascending: false });
 

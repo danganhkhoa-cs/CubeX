@@ -1,82 +1,769 @@
+"use client"
+
+import { useCallback, useEffect, useMemo, useState } from "react"
+import { AlertTriangle, Plus, RefreshCw, Save, X } from "lucide-react"
+import { toast } from "sonner"
+
+import { useAuth } from "@/hooks/auth/useAuth"
+import { adminService } from "@/service/admin"
+import type { AdminConfigRow } from "@/service/admin/types"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Textarea } from "@/components/ui/textarea"
 
-export default function Page() {
+const SPEC_KEYS = [
+  "edition",
+  "coated_types",
+  "magnet_types",
+  "spring_types",
+  "core_materials",
+  "customization_types",
+] as const
+
+type SpecKey = (typeof SPEC_KEYS)[number]
+
+type PlatformFeeDraft = {
+  percent: string
+  min_fee: string
+}
+
+type WalletDraft = {
+  escrow_wallet_id: string
+  admin_wallet_id: string
+}
+
+type SpecsDraft = Record<SpecKey, string[]>
+type SpecInputDraft = Record<SpecKey, string>
+
+const SPEC_LABELS: Record<SpecKey, string> = {
+  edition: "Edition",
+  coated_types: "Coated types",
+  magnet_types: "Magnet types",
+  spring_types: "Spring types",
+  core_materials: "Core materials",
+  customization_types: "Customization types",
+}
+
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+function createEmptySpecs(): SpecsDraft {
+  return {
+    edition: [],
+    coated_types: [],
+    magnet_types: [],
+    spring_types: [],
+    core_materials: [],
+    customization_types: [],
+  }
+}
+
+function createEmptySpecInputs(): SpecInputDraft {
+  return {
+    edition: "",
+    coated_types: "",
+    magnet_types: "",
+    spring_types: "",
+    core_materials: "",
+    customization_types: "",
+  }
+}
+
+function parseStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  const values = value
+    .map((item) => String(item).trim())
+    .filter(Boolean)
+    .filter((item, index, array) => array.indexOf(item) === index)
+  return values
+}
+
+function parsePlatformFee(value: unknown): PlatformFeeDraft {
+  if (!isObjectRecord(value)) {
+    return { percent: "", min_fee: "" }
+  }
+  return {
+    percent:
+      value.percent === undefined || value.percent === null
+        ? ""
+        : String(value.percent),
+    min_fee:
+      value.min_fee === undefined || value.min_fee === null
+        ? ""
+        : String(value.min_fee),
+  }
+}
+
+function parseWallets(value: unknown): WalletDraft {
+  if (!isObjectRecord(value)) {
+    return { escrow_wallet_id: "", admin_wallet_id: "" }
+  }
+  return {
+    escrow_wallet_id:
+      value.escrow_wallet_id === undefined || value.escrow_wallet_id === null
+        ? ""
+        : String(value.escrow_wallet_id),
+    admin_wallet_id:
+      value.admin_wallet_id === undefined || value.admin_wallet_id === null
+        ? ""
+        : String(value.admin_wallet_id),
+  }
+}
+
+function parseSpecs(value: unknown): {
+  specs: SpecsDraft
+  extra: Record<string, unknown>
+} {
+  const specs = createEmptySpecs()
+  const extra: Record<string, unknown> = {}
+
+  if (!isObjectRecord(value)) {
+    return { specs, extra }
+  }
+
+  for (const [key, keyValue] of Object.entries(value)) {
+    if ((SPEC_KEYS as readonly string[]).includes(key)) {
+      specs[key as SpecKey] = parseStringArray(keyValue)
+    } else {
+      extra[key] = keyValue
+    }
+  }
+
+  return { specs, extra }
+}
+
+function normalizeSpecsForSave(specs: SpecsDraft): SpecsDraft {
+  const next = createEmptySpecs()
+  for (const key of SPEC_KEYS) {
+    next[key] = parseStringArray(specs[key])
+  }
+  return next
+}
+
+function toJsonText(value: unknown) {
+  return JSON.stringify(value, null, 2)
+}
+
+function formatDate(value?: string) {
+  if (!value) return "-"
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleString("en-US")
+}
+
+function areStringArraysEqual(a: string[], b: string[]) {
+  if (a.length !== b.length) return false
+  return a.every((value, index) => value === b[index])
+}
+
+function SpecsField({
+  field,
+  values,
+  inputValue,
+  onInputChange,
+  onAdd,
+  onRemove,
+}: {
+  field: SpecKey
+  values: string[]
+  inputValue: string
+  onInputChange: (value: string) => void
+  onAdd: () => void
+  onRemove: (value: string) => void
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="space-y-2">
+        <Label>{SPEC_LABELS[field]}</Label>
+        {values.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {values.map((option) => (
+              <Badge key={`${field}-${option}`} variant="outline">
+                <span className="inline-flex items-center gap-1">
+                  {option}
+                  <button
+                    type="button"
+                    className="inline-flex cursor-pointer items-center"
+                    onClick={() => onRemove(option)}
+                    aria-label={`Remove ${option}`}
+                  >
+                    <X className="size-3" />
+                  </button>
+                </span>
+              </Badge>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">No options yet.</p>
+        )}
+      </div>
+      <div className="flex items-end gap-2">
+        <div className="flex-1 space-y-2">
+          <Label htmlFor={`spec-input-${field}`}>Add option</Label>
+          <Input
+            id={`spec-input-${field}`}
+            value={inputValue}
+            onChange={(event) => onInputChange(event.target.value)}
+            placeholder={`Add ${SPEC_LABELS[field].toLowerCase()} option`}
+            className="px-2 border-b-transparent focus-visible:border-b-transparent"
+          />
+        </div>
+        <Button type="button" variant="outline" onClick={onAdd}>
+          <Plus />
+          Add
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+export default function AdminConfigPage() {
+  const { user, loading: authLoading } = useAuth()
+
+  const [configRows, setConfigRows] = useState<AdminConfigRow[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [savingId, setSavingId] = useState<string | null>(null)
+
+  const [platformFee, setPlatformFee] = useState<PlatformFeeDraft>({
+    percent: "",
+    min_fee: "",
+  })
+  const [platformFeeBaseline, setPlatformFeeBaseline] =
+    useState<PlatformFeeDraft>({
+      percent: "",
+      min_fee: "",
+    })
+
+  const [wallets, setWallets] = useState<WalletDraft>({
+    escrow_wallet_id: "",
+    admin_wallet_id: "",
+  })
+  const [walletsBaseline, setWalletsBaseline] = useState<WalletDraft>({
+    escrow_wallet_id: "",
+    admin_wallet_id: "",
+  })
+
+  const [specs, setSpecs] = useState<SpecsDraft>(createEmptySpecs())
+  const [specsBaseline, setSpecsBaseline] = useState<SpecsDraft>(
+    createEmptySpecs()
+  )
+  const [specInputs, setSpecInputs] = useState<SpecInputDraft>(
+    createEmptySpecInputs()
+  )
+  const [specsExtra, setSpecsExtra] = useState<Record<string, unknown>>({})
+
+  const [otherDrafts, setOtherDrafts] = useState<Record<string, string>>({})
+  const [otherBaseline, setOtherBaseline] = useState<Record<string, string>>({})
+
+  const isAdmin = user?.role === "admin"
+
+  const rowById = useMemo(() => {
+    return Object.fromEntries(configRows.map((row) => [row.id, row]))
+  }, [configRows])
+
+  const loadConfig = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await adminService.getConfig()
+      setConfigRows(data)
+
+      const platformRow = data.find((row) => row.id === "platform_fee")
+      const walletRow = data.find((row) => row.id === "system_wallets")
+      const specsRow = data.find((row) => row.id === "specs")
+
+      const parsedPlatform = parsePlatformFee(platformRow?.value)
+      setPlatformFee(parsedPlatform)
+      setPlatformFeeBaseline(parsedPlatform)
+
+      const parsedWallets = parseWallets(walletRow?.value)
+      setWallets(parsedWallets)
+      setWalletsBaseline(parsedWallets)
+
+      const parsedSpecs = parseSpecs(specsRow?.value)
+      setSpecs(parsedSpecs.specs)
+      setSpecsBaseline(parsedSpecs.specs)
+      setSpecsExtra(parsedSpecs.extra)
+      setSpecInputs(createEmptySpecInputs())
+
+      const nextOtherDrafts: Record<string, string> = {}
+      for (const row of data) {
+        if (
+          row.id === "platform_fee" ||
+          row.id === "system_wallets" ||
+          row.id === "specs"
+        ) {
+          continue
+        }
+        nextOtherDrafts[row.id] = toJsonText(row.value)
+      }
+      setOtherDrafts(nextOtherDrafts)
+      setOtherBaseline(nextOtherDrafts)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to load config"
+      setError(message)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (authLoading || !isAdmin) return
+    const timer = setTimeout(() => {
+      void loadConfig()
+    }, 0)
+    return () => clearTimeout(timer)
+  }, [authLoading, isAdmin, loadConfig])
+
+  const platformFeeDirty = useMemo(() => {
+    return (
+      platformFee.percent !== platformFeeBaseline.percent ||
+      platformFee.min_fee !== platformFeeBaseline.min_fee
+    )
+  }, [platformFee, platformFeeBaseline])
+
+  const walletsDirty = useMemo(() => {
+    return (
+      wallets.escrow_wallet_id !== walletsBaseline.escrow_wallet_id ||
+      wallets.admin_wallet_id !== walletsBaseline.admin_wallet_id
+    )
+  }, [wallets, walletsBaseline])
+
+  const specsDirty = useMemo(() => {
+    return SPEC_KEYS.some(
+      (key) => !areStringArraysEqual(specs[key], specsBaseline[key])
+    )
+  }, [specs, specsBaseline])
+
+  const otherRows = useMemo(() => {
+    return configRows.filter(
+      (row) =>
+        row.id !== "platform_fee" &&
+        row.id !== "system_wallets" &&
+        row.id !== "specs"
+    )
+  }, [configRows])
+
+  const isOtherDirty = useCallback(
+    (id: string) => otherDrafts[id] !== otherBaseline[id],
+    [otherBaseline, otherDrafts]
+  )
+
+  const savePlatformFee = async () => {
+    const percent = Number(platformFee.percent)
+    const minFee = Number(platformFee.min_fee)
+    if (!Number.isFinite(percent) || !Number.isFinite(minFee)) {
+      toast.error("Platform fee fields must be valid numbers")
+      return
+    }
+
+    const payload = {
+      percent: Math.trunc(percent),
+      min_fee: Math.trunc(minFee),
+    }
+
+    setSavingId("platform_fee")
+    try {
+      const updated = await adminService.updateConfig("platform_fee", payload)
+      setConfigRows((prev) =>
+        prev.map((row) => (row.id === updated.id ? updated : row))
+      )
+      const parsed = parsePlatformFee(updated.value)
+      setPlatformFee(parsed)
+      setPlatformFeeBaseline(parsed)
+      toast.success('Updated "platform_fee"')
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : 'Failed to update "platform_fee"'
+      )
+    } finally {
+      setSavingId(null)
+    }
+  }
+
+  const saveWallets = async () => {
+    if (!wallets.escrow_wallet_id.trim() || !wallets.admin_wallet_id.trim()) {
+      toast.error("Both wallet ids are required")
+      return
+    }
+
+    const payload = {
+      escrow_wallet_id: wallets.escrow_wallet_id.trim(),
+      admin_wallet_id: wallets.admin_wallet_id.trim(),
+    }
+
+    setSavingId("system_wallets")
+    try {
+      const updated = await adminService.updateConfig("system_wallets", payload)
+      setConfigRows((prev) =>
+        prev.map((row) => (row.id === updated.id ? updated : row))
+      )
+      const parsed = parseWallets(updated.value)
+      setWallets(parsed)
+      setWalletsBaseline(parsed)
+      toast.success('Updated "system_wallets"')
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : 'Failed to update "system_wallets"'
+      )
+    } finally {
+      setSavingId(null)
+    }
+  }
+
+  const saveSpecs = async () => {
+    const normalized = normalizeSpecsForSave(specs)
+    const payload: Record<string, unknown> = {
+      ...specsExtra,
+    }
+
+    for (const key of SPEC_KEYS) {
+      payload[key] = normalized[key]
+    }
+
+    setSavingId("specs")
+    try {
+      const updated = await adminService.updateConfig("specs", payload)
+      setConfigRows((prev) =>
+        prev.map((row) => (row.id === updated.id ? updated : row))
+      )
+      const parsed = parseSpecs(updated.value)
+      setSpecs(parsed.specs)
+      setSpecsBaseline(parsed.specs)
+      setSpecsExtra(parsed.extra)
+      setSpecInputs(createEmptySpecInputs())
+      toast.success('Updated "specs"')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update "specs"')
+    } finally {
+      setSavingId(null)
+    }
+  }
+
+  const saveOtherConfig = async (id: string) => {
+    const raw = otherDrafts[id]
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(raw)
+    } catch {
+      toast.error(`Invalid JSON for "${id}"`)
+      return
+    }
+
+    setSavingId(id)
+    try {
+      const updated = await adminService.updateConfig(id, parsed)
+      setConfigRows((prev) =>
+        prev.map((row) => (row.id === updated.id ? updated : row))
+      )
+      const nextText = toJsonText(updated.value)
+      setOtherDrafts((prev) => ({ ...prev, [id]: nextText }))
+      setOtherBaseline((prev) => ({ ...prev, [id]: nextText }))
+      toast.success(`Updated "${id}"`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : `Failed to update "${id}"`)
+    } finally {
+      setSavingId(null)
+    }
+  }
+
+  const addSpecOption = (field: SpecKey) => {
+    const raw = specInputs[field].trim()
+    if (!raw) return
+    setSpecs((prev) => {
+      if (prev[field].includes(raw)) return prev
+      return { ...prev, [field]: [...prev[field], raw] }
+    })
+    setSpecInputs((prev) => ({ ...prev, [field]: "" }))
+  }
+
+  const removeSpecOption = (field: SpecKey, option: string) => {
+    setSpecs((prev) => ({
+      ...prev,
+      [field]: prev[field].filter((value) => value !== option),
+    }))
+  }
+
+  if (authLoading) {
+    return (
+      <main className="space-y-6">
+        <Skeleton className="h-8 w-56" />
+        <Card>
+          <CardContent className="space-y-4 py-6">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-32 w-full" />
+          </CardContent>
+        </Card>
+      </main>
+    )
+  }
+
+  if (!isAdmin) {
+    return (
+      <main className="space-y-6">
+        <header>
+          <h1 className="text-2xl font-semibold">System config</h1>
+          <p className="text-sm text-muted-foreground">
+            You do not have permission to access this page.
+          </p>
+        </header>
+      </main>
+    )
+  }
+
   return (
     <main className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold">System config</h1>
-        <p className="text-sm text-muted-foreground">
-          Tune fees, brand catalogs, and marketplace defaults.
-        </p>
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold">System config</h1>
+          <p className="text-sm text-muted-foreground">
+            Structured editors for fee, wallets, and specs. Save converts values
+            back to JSON and updates config.
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          onClick={() => void loadConfig()}
+          disabled={loading || !!savingId}
+        >
+          <RefreshCw className={loading ? "animate-spin" : ""} />
+          Refresh
+        </Button>
       </header>
 
-      <Tabs defaultValue="marketplace" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="marketplace">Marketplace</TabsTrigger>
-          <TabsTrigger value="catalog">Catalog</TabsTrigger>
-        </TabsList>
-        <TabsContent value="marketplace">
+      {error && (
+        <div className="flex items-center gap-2 border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+          <AlertTriangle className="size-4" />
+          <span>{error}</span>
+        </div>
+      )}
+
+      {loading ? (
+        <Card>
+          <CardContent className="space-y-4 py-6">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-40 w-full" />
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-4">
           <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Fees & rules</CardTitle>
+            <CardHeader className="space-y-2">
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-base">Platform fee</CardTitle>
+                <Badge variant={platformFeeDirty ? "secondary" : "outline"}>
+                  {platformFeeDirty ? "Unsaved changes" : "Saved"}
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Updated: {formatDate(rowById.platform_fee?.updated_at)} |
+                Created: {formatDate(rowById.platform_fee?.created_at)}
+              </p>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="fee">Platform fee (%)</Label>
-                  <Input id="fee" placeholder="3.5" />
+                  <Label htmlFor="platform-fee-percent">Percent</Label>
+                  <Input
+                    id="platform-fee-percent"
+                    className="px-2"
+                    inputMode="numeric"
+                    value={platformFee.percent}
+                    onChange={(event) =>
+                      setPlatformFee((prev) => ({
+                        ...prev,
+                        percent: event.target.value,
+                      }))
+                    }
+                  />
                 </div>
                 <div className="space-y-2">
-                  <Label>Settlement schedule</Label>
-                  <Select>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Weekly" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="weekly">Weekly</SelectItem>
-                      <SelectItem value="biweekly">Biweekly</SelectItem>
-                      <SelectItem value="monthly">Monthly</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="platform-fee-min-fee">Min fee</Label>
+                  <Input
+                    id="platform-fee-min-fee"
+                    className="px-2"
+                    inputMode="numeric"
+                    value={platformFee.min_fee}
+                    onChange={(event) =>
+                      setPlatformFee((prev) => ({
+                        ...prev,
+                        min_fee: event.target.value,
+                      }))
+                    }
+                  />
                 </div>
               </div>
-              <Separator />
-              <Button>Save settings</Button>
+              <div className="flex justify-end">
+                <Button
+                  variant={platformFeeDirty ? "default" : "secondary"}
+                  disabled={
+                    !platformFeeDirty || !!savingId || !rowById.platform_fee
+                  }
+                  onClick={() => void savePlatformFee()}
+                >
+                  <Save />
+                  {savingId === "platform_fee" ? "Saving..." : "Save"}
+                </Button>
+              </div>
             </CardContent>
           </Card>
-        </TabsContent>
-        <TabsContent value="catalog">
+
           <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Brand & category</CardTitle>
+            <CardHeader className="space-y-2">
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-base">System wallets</CardTitle>
+                <Badge variant={walletsDirty ? "secondary" : "outline"}>
+                  {walletsDirty ? "Unsaved changes" : "Saved"}
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Updated: {formatDate(rowById.system_wallets?.updated_at)} |
+                Created: {formatDate(rowById.system_wallets?.created_at)}
+              </p>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="brand">Add brand</Label>
-                <Input id="brand" placeholder="GAN" />
+              <div className="grid gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="wallet-escrow-id">Escrow wallet id</Label>
+                  <Input
+                    id="wallet-escrow-id"
+                    className="px-2"
+                    value={wallets.escrow_wallet_id}
+                    onChange={(event) =>
+                      setWallets((prev) => ({
+                        ...prev,
+                        escrow_wallet_id: event.target.value,
+                      }))
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="wallet-admin-id">Admin wallet id</Label>
+                  <Input
+                    id="wallet-admin-id"
+                    className="px-2"
+                    value={wallets.admin_wallet_id}
+                    onChange={(event) =>
+                      setWallets((prev) => ({
+                        ...prev,
+                        admin_wallet_id: event.target.value,
+                      }))
+                    }
+                  />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="category">Add category</Label>
-                <Input id="category" placeholder="Limited editions" />
+              <div className="flex justify-end">
+                <Button
+                  variant={walletsDirty ? "default" : "secondary"}
+                  disabled={
+                    !walletsDirty || !!savingId || !rowById.system_wallets
+                  }
+                  onClick={() => void saveWallets()}
+                >
+                  <Save />
+                  {savingId === "system_wallets" ? "Saving..." : "Save"}
+                </Button>
               </div>
-              <Separator />
-              <Button variant="outline">Update catalog</Button>
             </CardContent>
           </Card>
-        </TabsContent>
-      </Tabs>
+
+          <Card>
+            <CardHeader className="space-y-2">
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-base">Specs options</CardTitle>
+                <Badge variant={specsDirty ? "secondary" : "outline"}>
+                  {specsDirty ? "Unsaved changes" : "Saved"}
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Updated: {formatDate(rowById.specs?.updated_at)} | Created:{" "}
+                {formatDate(rowById.specs?.created_at)}
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {SPEC_KEYS.map((field, index) => (
+                <div key={field} className="space-y-4">
+                  {index > 0 ? <Separator /> : null}
+                  <SpecsField
+                    field={field}
+                    values={specs[field]}
+                    inputValue={specInputs[field]}
+                    onInputChange={(value) =>
+                      setSpecInputs((prev) => ({ ...prev, [field]: value }))
+                    }
+                    onAdd={() => addSpecOption(field)}
+                    onRemove={(option) => removeSpecOption(field, option)}
+                  />
+                </div>
+              ))}
+              <div className="flex justify-end">
+                <Button
+                  variant={specsDirty ? "default" : "secondary"}
+                  disabled={!specsDirty || !!savingId || !rowById.specs}
+                  onClick={() => void saveSpecs()}
+                >
+                  <Save />
+                  {savingId === "specs" ? "Saving..." : "Save"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {otherRows.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Other configs</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {otherRows.map((row, index) => {
+                  const dirty = isOtherDirty(row.id)
+                  return (
+                    <div key={row.id} className="space-y-3">
+                      {index > 0 ? <Separator /> : null}
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-semibold">{row.id}</p>
+                        <Badge variant={dirty ? "secondary" : "outline"}>
+                          {dirty ? "Unsaved changes" : "Saved"}
+                        </Badge>
+                      </div>
+                      <Textarea
+                        className="min-h-40 rounded-md border border-input px-3 py-2 font-mono text-xs"
+                        value={otherDrafts[row.id] || ""}
+                        onChange={(event) =>
+                          setOtherDrafts((prev) => ({
+                            ...prev,
+                            [row.id]: event.target.value,
+                          }))
+                        }
+                        spellCheck={false}
+                      />
+                      <div className="flex justify-end">
+                        <Button
+                          variant={dirty ? "default" : "secondary"}
+                          disabled={!dirty || !!savingId}
+                          onClick={() => void saveOtherConfig(row.id)}
+                        >
+                          <Save />
+                          {savingId === row.id ? "Saving..." : "Save"}
+                        </Button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
     </main>
   )
 }

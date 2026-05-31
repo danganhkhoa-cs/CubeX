@@ -344,6 +344,7 @@ export async function getProductById(
                 id,
 				seller_id,
 				is_sold,
+				is_deleted,
 				title,
 				price,
 				images,
@@ -355,7 +356,6 @@ export async function getProductById(
             `,
 			)
 			.eq("id", id)
-			.eq("is_deleted", false)
 			.single();
 
 		if (error) {

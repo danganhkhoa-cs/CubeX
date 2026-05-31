@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 
 const adminLinks = [
+  { href: "/admin/statistics", label: "Statistics" },
   { href: "/admin/disputes", label: "Dispute center" },
   { href: "/admin/config", label: "System config" },
 ]

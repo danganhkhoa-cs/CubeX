@@ -9,6 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { Spinner } from "@/components/ui/spinner"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
@@ -27,6 +28,7 @@ type ProductCardProps = {
   sellerName?: string
   specs?: Record<string, string | string[]>
   href?: string
+  isHiddenButton?: boolean
 }
 
 const specsLabels: Record<string, string> = {
@@ -64,6 +66,7 @@ export default function ProductCard({
   categoryName,
   specs,
   href,
+  isHiddenButton = false,
 }: ProductCardProps) {
   const router = useRouter()
   const { user } = useAuth()
@@ -174,8 +177,18 @@ export default function ProductCard({
           className="text-md w-full font-bold"
           onClick={handleAddToCart}
           disabled={isLoading || isAddedForCurrentUser}
+          hidden={isHiddenButton}
         >
-          {isAddedForCurrentUser ? "Added" : isLoading ? "Adding..." : "Add to cart"}
+          {isAddedForCurrentUser ? (
+            "Added"
+          ) : isLoading ? (
+            <span className="inline-flex items-center gap-2">
+              <Spinner />
+              Adding...
+            </span>
+          ) : (
+            "Add to cart"
+          )}
         </Button>
       </CardFooter>
     </Card>

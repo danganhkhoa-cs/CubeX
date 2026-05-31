@@ -158,3 +158,19 @@ export interface GetUserPublicResponse {
   user?: UserProfilePublic
   message?: string
 }
+
+export interface UpdateProfileRequest {
+  full_name: string
+  bio?: string
+  street?: string
+  district?: string
+  city?: string
+  phone?: string
+  avatar?: File | null
+}
+
+export interface UpdateProfileResponse {
+  success: true
+  user?: UserProfile
+  message?: string
+}

@@ -3,8 +3,17 @@
 import Link from "next/link"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useMemo } from "react"
+import {
+  LogOut,
+  Package2,
+  Shield,
+  ShoppingCart,
+  UserCircle2,
+  Wallet,
+} from "lucide-react"
 
 import { useAuth } from "@/hooks/auth/useAuth"
+import { useCart } from "@/hooks/cart/useCart"
 import { authService } from "@/service/auth"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -36,8 +45,11 @@ export default function Navbar() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const { user, loading, refresh } = useAuth()
+  const { cartProductIds } = useCart()
   const displayName = user?.full_name || user?.username || user?.email || ""
   const initials = displayName ? getInitials(displayName) : "U"
+  const cartCount = cartProductIds.size
+  const cartCountLabel = cartCount > 99 ? "99+" : String(cartCount)
 
   const currentPath = useMemo(() => {
     const query = searchParams.toString()
@@ -109,14 +121,21 @@ export default function Navbar() {
                   <span className="hidden font-bold sm:inline">
                     {displayName}
                   </span>
-                  <Avatar size="default">
-                    {user.avatar_url && (
-                      <AvatarImage src={user.avatar_url} alt={displayName} />
+                  <span className="relative inline-flex">
+                    <Avatar size="default">
+                      {user.avatar_url && (
+                        <AvatarImage src={user.avatar_url} alt={displayName} />
+                      )}
+                      <AvatarFallback className="bg-primary text-sm font-semibold text-background">
+                        {initials}
+                      </AvatarFallback>
+                    </Avatar>
+                    {cartCount > 0 && (
+                      <span className="text-destructive-foreground absolute -top-1.5 -right-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive/30 text-[10px]">
+                        {cartCount}
+                      </span>
                     )}
-                    <AvatarFallback className="bg-primary text-sm font-semibold text-background">
-                      {initials}
-                    </AvatarFallback>
-                  </Avatar>
+                  </span>
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" side="bottom" sideOffset={12}>
@@ -125,22 +144,60 @@ export default function Navbar() {
                     router.push(withReturnTo("/cart"))
                   }}
                 >
-                  Cart
+                  <div className="flex w-full items-center justify-between gap-3">
+                    <span className="inline-flex items-center gap-2">
+                      <ShoppingCart className="size-4" />
+                      Cart
+                    </span>
+                    <span className="text-destructive-foreground inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive/30 px-1 text-[11px] font-semibold">
+                      {cartCountLabel}
+                    </span>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => {
+                    router.push(
+                      withReturnTo(`/products?seller_id=${user.user_id}`)
+                    )
+                  }}
+                >
+                  <span className="inline-flex items-center gap-2">
+                    <Package2 className="size-4" />
+                    My products
+                  </span>
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onSelect={() => {
                     router.push(withReturnTo("/wallet"))
                   }}
                 >
-                  Wallet
+                  <span className="inline-flex items-center gap-2">
+                    <Wallet className="size-4" />
+                    Wallet
+                  </span>
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onSelect={() => {
                     router.push(withReturnTo("/profile"))
                   }}
                 >
-                  See profile
+                  <span className="inline-flex items-center gap-2">
+                    <UserCircle2 className="size-4" />
+                    Profile
+                  </span>
                 </DropdownMenuItem>
+                {user.role === "admin" && (
+                  <DropdownMenuItem
+                    onSelect={() => {
+                      router.push("/admin")
+                    }}
+                  >
+                    <span className="inline-flex items-center gap-2">
+                      <Shield className="size-4" />
+                      Admin
+                    </span>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   variant="destructive"
@@ -148,7 +205,10 @@ export default function Navbar() {
                     void handleLogout()
                   }}
                 >
-                  Logout
+                  <span className="inline-flex items-center gap-2">
+                    <LogOut className="size-4" />
+                    Logout
+                  </span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

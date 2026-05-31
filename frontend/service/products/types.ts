@@ -47,6 +47,7 @@ export interface Product {
 
 export interface ProductDetail extends Product {
   is_sold: boolean
+  is_deleted: boolean
 }
 
 export interface FilterProductsRequest {
@@ -74,6 +75,16 @@ export interface CreateProductRequest {
   specs?: Record<string, string | string[]> | null
 }
 
+export interface UpdateProductRequest {
+  title?: string | null
+  price?: number | null
+  brand_id?: string | null
+  category_id?: string | null
+  images?: string[] | null
+  description?: string | null
+  specs?: Record<string, string | string[]> | null
+}
+
 export interface UploadImagesResponse {
   success: boolean
   urls: string[]
@@ -81,6 +92,11 @@ export interface UploadImagesResponse {
 }
 
 export interface CreateProductResponse {
+  success: boolean
+  product: Product[]
+}
+
+export interface UpdateProductResponse {
   success: boolean
   product: Product[]
 }

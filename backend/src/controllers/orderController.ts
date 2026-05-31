@@ -92,15 +92,22 @@ export async function getOrderHistory(
 				.select(
 					`
 					id,
+					tracking_id,
 					buyer_id,
 					product_id,
+					products (
+						id,					
+						title,
+						images
+					),
 					total_amount,
 					shipping_info,
 					created_at,
 					status
 				`,
 				)
-				.eq("buyer_id", user_id);
+				.eq("buyer_id", user_id)
+				.order("created_at", { ascending: false });
 			if (error) {
 				res.status(400).json({
 					success: false,
@@ -123,8 +130,14 @@ export async function getOrderHistory(
 				.select(
 					`
 					id,
+					tracking_id,
 					seller_id,
 					product_id,
+					products (
+						id,					
+						title,
+						images
+					),
 					total_amount,
 					shipping_info,
 					created_at,
@@ -159,7 +172,7 @@ export async function getOrderById(
 ): Promise<void> {
 	try {
 		const { tracking_id } = req.params;
-		const user_id = req.user.id;
+		const user_id = req.user ? req.user.id : null;
 
 		const { data, error } = await supabase.rpc("get_order_by_tracking_id", {
 			p_tracking_id: tracking_id,
@@ -382,12 +395,14 @@ export async function raiseDispute(
 		}
 
 		const order_id = orderData.id;
+		const product = orderData.product;
+		console.log(product);
 
 		// Update order status to disputed
 		const { error: statusError } = await supabase.rpc("update_order_status", {
 			p_user_id: buyer_id,
 			p_tracking_id: tracking_id,
-			p_status: "disputed",
+			p_status: "dispute",
 		});
 
 		if (statusError) {
@@ -405,6 +420,7 @@ export async function raiseDispute(
 			.insert([
 				{
 					order_id: order_id,
+					product: product,
 					buyer_id: buyer_id,
 					reason: reason,
 					evidence_urls: evidence_urls,
