@@ -15,6 +15,17 @@ import SellerInfoSkeleton from "@/components/SellerInfoSkeleton"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Spinner } from "@/components/ui/spinner"
@@ -28,34 +39,9 @@ import type { ProductDetail } from "@/service/products/types"
 import type { UserProfilePublic } from "@/service/auth/types"
 import { toast } from "sonner"
 
-const specsLabels: Record<string, string> = {
-  normal: "Normal",
-  se: "SE",
-  limited: "Limited",
-  glossy: "Glossy",
-  matte: "Matte",
-  uv: "UV",
-  none: "None",
-  standard: "Standard",
-  plastic: "Plastic core",
-  metal: "Metal core",
-  ballcore8m: "BallCore 8M",
-  ballcore20m: "BallCore 20M",
-  maglev: "MagLev",
-  magcore: "MagCore",
-}
-
-const specsCustomizationLabels: Record<string, string> = {
-  magcore: "CUST: MagCore",
-  ballcore8m: "CUST: BallCore 8M",
-  ballcore20m: "CUST: BallCore 20M",
-  maglev: "CUST: MagLev",
-  uv: "CUST: UV",
-  other: "CUST: Other",
-}
-
-function formatSpecValue(value: string) {
-  return specsLabels[value] || value
+function formatCapitalized(value: string) {
+  if (!value) return value
+  return value.charAt(0).toUpperCase() + value.slice(1)
 }
 
 function formatOrderStatus(value: string) {
@@ -92,15 +78,22 @@ export default function Page() {
   const [error, setError] = useState<string | null>(null)
   const [sellerLoading, setSellerLoading] = useState(false)
   const [isAdding, setIsAdding] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
   const isOwnProfile = product?.seller_id === user?.user_id
   const returnTo = searchParams.get("returnTo") || ""
   const showBack =
     returnTo.startsWith("/products") ||
     returnTo.startsWith("/cart") ||
     returnTo.startsWith("/orders")
+  const isCancelledOrderContext =
+    !!orderTrackingId &&
+    orderStatus === "cancelled" &&
+    (orderRole === "buyer" || orderRole === "seller")
+  const shouldShowOrderStatusButton = !isCancelledOrderContext
   const isOrderContext =
     !!orderTrackingId &&
     !!orderStatus &&
+    shouldShowOrderStatusButton &&
     (orderRole === "buyer" || orderRole === "seller")
   const currentPath = useMemo(() => {
     const query = searchParams.toString()
@@ -171,7 +164,9 @@ export default function Page() {
   }, [productId])
 
   const isAdded = !!productId && isInCart(productId)
-  const isUnavailable = !!product && (product.is_sold || product.is_deleted)
+  const isUnavailable =
+    !!product &&
+    (product.is_deleted || (product.is_sold && !isCancelledOrderContext))
 
   const handleAddToCart = async () => {
     if (!productId) {
@@ -198,6 +193,25 @@ export default function Page() {
       toast.error("Failed to add to cart")
     } finally {
       setIsAdding(false)
+    }
+  }
+
+  const handleDeleteProduct = async () => {
+    if (!productId || !user) return
+
+    try {
+      setIsDeleting(true)
+      const response = await productService.deleteProduct(productId)
+      toast.success(response.message || "Listing deleted")
+      router.replace(`/products?seller_id=${user.user_id}`)
+    } catch (deleteError) {
+      const message =
+        deleteError instanceof Error
+          ? deleteError.message
+          : "Failed to delete listing"
+      toast.error(message)
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -277,7 +291,7 @@ export default function Page() {
           <CardHeader>
             <CardTitle className="text-base uppercase">Details</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4 text-sm text-muted-foreground">
+          <CardContent className="-mt-3 space-y-4 text-sm text-muted-foreground">
             <div className="space-y-1">
               <p className="text-xs tracking-wide text-muted-foreground uppercase">
                 Price
@@ -291,7 +305,7 @@ export default function Page() {
               <Badge variant="secondary">
                 <span className="inline-flex items-center gap-1.5">
                   <Tag className="size-3.5" />
-                  {brandName?.toUpperCase() || product.brand_id}
+                  {formatCapitalized(brandName || product.brand_id)}
                 </span>
               </Badge>
               <Badge variant="ghost">
@@ -310,7 +324,7 @@ export default function Page() {
                         <Badge key={`${key}-${item}`} variant="outline">
                           <span className="inline-flex items-center gap-1.5">
                             <Settings2 className="size-3.5" />
-                            {specsCustomizationLabels[item] || item}
+                            {formatCapitalized(item)}
                           </span>
                         </Badge>
                       ))
@@ -322,7 +336,7 @@ export default function Page() {
                       <Badge key={`${key}-${item}`} variant="outline">
                         <span className="inline-flex items-center gap-1.5">
                           <Settings2 className="size-3.5" />
-                          {formatSpecValue(item)}
+                          {formatCapitalized(item)}
                         </span>
                       </Badge>
                     ))
@@ -332,7 +346,7 @@ export default function Page() {
                     <Badge key={key} variant="outline">
                       <span className="inline-flex items-center gap-1.5">
                         <Settings2 className="size-3.5" />
-                        {formatSpecValue(value)}
+                        {formatCapitalized(value)}
                       </span>
                     </Badge>
                   )
@@ -386,14 +400,56 @@ export default function Page() {
                 {formatOrderStatus(orderStatus)}
               </Button>
             ) : isOwnProfile ? (
-              <Button
-                size="sm"
-                className="text-md w-full font-extrabold"
-                onClick={() => router.push(updateHref)}
-                disabled={isUnavailable || !updateHref}
-              >
-                {isUnavailable ? "Update unavailable" : "Update listing"}
-              </Button>
+              <div className="space-y-2">
+                <Button
+                  size="sm"
+                  className="text-md w-full font-extrabold"
+                  onClick={() => router.push(updateHref)}
+                  disabled={isUnavailable || !updateHref || isDeleting}
+                >
+                  {isUnavailable ? "Update unavailable" : "Update listing"}
+                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      className="text-md w-full font-extrabold"
+                      disabled={product.is_deleted || isDeleting}
+                    >
+                      {isDeleting ? (
+                        <span className="inline-flex items-center gap-2">
+                          <Spinner />
+                          Deleting...
+                        </span>
+                      ) : (
+                        "Delete listing"
+                      )}
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete this listing?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will remove the product from the marketplace. This
+                        action cannot be undone from the frontend.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel disabled={isDeleting}>
+                        Cancel
+                      </AlertDialogCancel>
+                      <AlertDialogAction
+                        className="bg-destructive/10 text-destructive hover:bg-destructive/20"
+                        disabled={isDeleting}
+                        onClick={handleDeleteProduct}
+                      >
+                        {isDeleting ? <Spinner /> : "Delete"}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
             ) : isUnavailable ? (
               <Button
                 size="sm"
@@ -431,7 +487,7 @@ export default function Page() {
         <CardHeader>
           <CardTitle className="text-base uppercase">Description</CardTitle>
         </CardHeader>
-        <CardContent className="text-sm text-muted-foreground">
+        <CardContent className="-mt-5 text-sm text-muted-foreground">
           {product.description || "No description provided."}
         </CardContent>
       </Card>

@@ -2,7 +2,7 @@ import { Response } from "express";
 import { z } from "zod";
 import { AuthRequest } from "../types/authrequest";
 import { sendServerError } from "../utils/sendServerError";
-import { supabase } from "../config/supabase";
+import { createSupabaseClient } from "../config/supabase";
 
 const amountSchema = z.object({
 	amount: z.coerce.number().int().positive(),
@@ -15,8 +15,7 @@ export async function getBalance(
 	try {
 		const user_id = req.user.id;
 
-		const { data, error } = await supabase
-			.from("wallets")
+		const { data, error } = await createSupabaseClient().from("wallets")
 			.select("balance")
 			.eq("id", user_id)
 			.single();
@@ -54,7 +53,7 @@ export async function topUp(req: AuthRequest, res: Response): Promise<void> {
 		const { amount } = parsed.data;
 		const wallet_id = req.user.id;
 
-		const { data, error } = await supabase.rpc("create_transaction", {
+		const { data, error } = await createSupabaseClient().rpc("create_transaction", {
 			p_wallet_id: wallet_id,
 			p_order_id: null,
 			p_amount: amount,
@@ -94,7 +93,7 @@ export async function withdraw(req: AuthRequest, res: Response): Promise<void> {
 		const { amount } = parsed.data;
 		const wallet_id = req.user.id;
 
-		const { data, error } = await supabase.rpc("create_transaction", {
+		const { data, error } = await createSupabaseClient().rpc("create_transaction", {
 			p_wallet_id: wallet_id,
 			p_order_id: null,
 			p_amount: amount,
@@ -127,8 +126,7 @@ export async function getTransactionHistory(
 	try {
 		const wallet_id = req.user.id;
 
-		const { data, error } = await supabase
-			.from("transactions")
+		const { data, error } = await createSupabaseClient().from("transactions")
 			.select(
 				`
 				id, 

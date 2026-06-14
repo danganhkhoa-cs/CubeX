@@ -7,6 +7,7 @@ const adminLinks = [
   { href: "/admin/statistics", label: "Statistics" },
   { href: "/admin/disputes", label: "Dispute center" },
   { href: "/admin/config", label: "System config" },
+  { href: "/admin/create-admin", label: "Create admin account" },
 ]
 
 export default function AdminLayout({

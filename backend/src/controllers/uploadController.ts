@@ -1,7 +1,7 @@
 import { Response } from "express";
 import { AuthRequest } from "../types/authrequest";
 import { sendServerError } from "../utils/sendServerError";
-import { supabase } from "../config/supabase";
+import { createSupabaseClient } from "../config/supabase";
 
 export async function uploadImages(
 	req: AuthRequest,
@@ -27,7 +27,7 @@ export async function uploadImages(
 				const filePath = `images/${fileName}`;
 
 				// Upload to Supabase Storage
-				const { data, error } = await supabase.storage
+				const { data, error } = await createSupabaseClient().storage
 					.from("image")
 					.upload(filePath, file.buffer, {
 						contentType: file.mimetype,
@@ -42,7 +42,7 @@ export async function uploadImages(
 				}
 
 				// Get public URL
-				const { data: publicData } = supabase.storage
+				const { data: publicData } = createSupabaseClient().storage
 					.from("image")
 					.getPublicUrl(filePath);
 

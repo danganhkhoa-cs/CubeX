@@ -11,6 +11,7 @@ import type {
   FilterProductsRequest,
   CreateProductRequest,
   CreateProductResponse,
+  DeleteProductResponse,
   UpdateProductRequest,
   UpdateProductResponse,
   UploadImagesResponse,
@@ -157,5 +158,16 @@ export const productService = {
     }
 
     return response.data.product
+  },
+  deleteProduct: async (id: string): Promise<DeleteProductResponse> => {
+    const response = await apiClient.delete<DeleteProductResponse>(
+      `/products/${id}`
+    )
+
+    if (!response.data.success) {
+      throw new Error(response.data.message || "Failed to delete listing")
+    }
+
+    return response.data
   },
 }

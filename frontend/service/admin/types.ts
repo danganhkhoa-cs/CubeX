@@ -102,3 +102,33 @@ export interface GetAdminTransactionsResponse {
   transactions: AdminTransactionRecord[]
   message?: string
 }
+
+export interface AdminCatalogItem {
+  id: string
+  name: string
+}
+
+export interface AdminBrandMutationResponse {
+  success: boolean
+  brands: AdminCatalogItem[]
+  message?: string
+}
+
+export interface AdminCategoryMutationResponse {
+  success: boolean
+  categories: AdminCatalogItem[]
+  message?: string
+}
+
+export interface AdminSignUpRequest {
+  email: string
+  password: string
+  username: string
+  full_name: string
+}
+
+export interface AdminSignUpResponse {
+  success: boolean
+  data?: unknown
+  message?: string
+}

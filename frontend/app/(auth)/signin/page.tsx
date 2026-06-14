@@ -83,7 +83,15 @@ export default function SignInPage() {
                 {errors.email && <FieldError>{errors.email}</FieldError>}
               </Field>
               <Field data-invalid={!!errors.password}>
-                <FieldLabel htmlFor="password">Password</FieldLabel>
+                <div className="flex items-center justify-between gap-4">
+                  <FieldLabel htmlFor="password">Password</FieldLabel>
+                  <Link
+                    href="/forgot-password"
+                    className="text-sm text-muted-foreground hover:text-foreground hover:underline"
+                  >
+                    Forgot password?
+                  </Link>
+                </div>
                 <Input
                   id="password"
                   name="password"

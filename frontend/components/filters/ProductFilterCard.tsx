@@ -18,25 +18,9 @@ import { useRouter } from "next/navigation"
 
 const ALL_OPTION = "__all__"
 
-const labelMap: Record<string, string> = {
-  gan: "GAN",
-  moyu: "MoYu",
-  qiyi: "QiYi",
-  se: "SE",
-  uv: "UV",
-  maglev: "MagLev",
-  magcore: "MagCore",
-  ballcore8m: "BallCore 8M",
-  ballcore20m: "BallCore 20M",
-}
-
 function formatLabel(value: string) {
-  return (
-    labelMap[value] ??
-    value
-      .replace(/_/g, " ")
-      .replace(/\b\w/g, (character) => character.toUpperCase())
-  )
+  if (!value) return value
+  return value.charAt(0).toUpperCase() + value.slice(1)
 }
 
 interface ProductFilterCardProps {

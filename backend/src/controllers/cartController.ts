@@ -2,7 +2,7 @@ import { Response } from "express";
 import { z } from "zod";
 import { AuthRequest } from "../types/authrequest";
 import { sendServerError } from "../utils/sendServerError";
-import { supabase } from "../config/supabase";
+import { createSupabaseClient } from "../config/supabase";
 
 export async function getCartItems(
 	req: AuthRequest,
@@ -11,8 +11,7 @@ export async function getCartItems(
 	try {
 		const user_id = req.user.id;
 
-		const { data, error } = await supabase
-			.from("cart_items")
+		const { data, error } = await createSupabaseClient().from("cart_items")
 			.select(
 				`
 				id,
@@ -59,8 +58,7 @@ export async function addToCart(
 		const user_id = req.user.id;
 		const { product_id } = req.body;
 
-		const { data: product, error: productError } = await supabase
-			.from("products")
+		const { data: product, error: productError } = await createSupabaseClient().from("products")
 			.select("is_sold, is_deleted, seller_id")
 			.eq("id", product_id)
 			.single();
@@ -89,8 +87,7 @@ export async function addToCart(
 			return;
 		}
 
-		const { data, error } = await supabase
-			.from("cart_items")
+		const { data, error } = await createSupabaseClient().from("cart_items")
 			.insert([
 				{
 					user_id,
@@ -125,8 +122,7 @@ export async function removeFromCart(
 		const { productId } = req.params;
 		const user_id = req.user.id;
 
-		const { error } = await supabase
-			.from("cart_items")
+		const { error } = await createSupabaseClient().from("cart_items")
 			.delete()
 			.eq("user_id", user_id)
 			.eq("product_id", productId);
@@ -156,8 +152,7 @@ export async function clearCart(
 	try {
 		const user_id = req.user.id;
 
-		const { error } = await supabase
-			.from("cart_items")
+		const { error } = await createSupabaseClient().from("cart_items")
 			.delete()
 			.eq("user_id", user_id);
 

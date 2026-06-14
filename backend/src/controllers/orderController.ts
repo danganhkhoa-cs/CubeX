@@ -2,7 +2,7 @@ import { Response } from "express";
 import { z } from "zod";
 import { AuthRequest } from "../types/authrequest";
 import { sendServerError } from "../utils/sendServerError";
-import { supabase } from "../config/supabase";
+import { createSupabaseClient } from "../config/supabase";
 
 const createOrderSchema = z.object({
 	product_id: z.uuid(),
@@ -54,7 +54,7 @@ export async function createOrder(
 			note: shipping_note,
 		};
 
-		const { data, error } = await supabase.rpc("purchase_product", {
+		const { data, error } = await createSupabaseClient().rpc("purchase_product", {
 			p_product_id: product_id,
 			p_buyer_id: buyer_id,
 			p_shipping_info: shipping_info,
@@ -87,8 +87,7 @@ export async function getOrderHistory(
 		const user_id = req.user.id;
 
 		if (role === "buyer") {
-			const { data, error } = await supabase
-				.from("orders")
+			const { data, error } = await createSupabaseClient().from("orders")
 				.select(
 					`
 					id,
@@ -125,8 +124,7 @@ export async function getOrderHistory(
 		}
 
 		if (role === "seller") {
-			const { data, error } = await supabase
-				.from("orders")
+			const { data, error } = await createSupabaseClient().from("orders")
 				.select(
 					`
 					id,
@@ -174,7 +172,7 @@ export async function getOrderById(
 		const { tracking_id } = req.params;
 		const user_id = req.user ? req.user.id : null;
 
-		const { data, error } = await supabase.rpc("get_order_by_tracking_id", {
+		const { data, error } = await createSupabaseClient().rpc("get_order_by_tracking_id", {
 			p_tracking_id: tracking_id,
 			p_user_id: user_id,
 		});
@@ -206,7 +204,7 @@ export async function updateOrderStatus(
 		const { status } = req.body;
 		const user_id = req.user.id;
 
-		const { data, error } = await supabase.rpc("update_order_status", {
+		const { data, error } = await createSupabaseClient().rpc("update_order_status", {
 			p_user_id: user_id,
 			p_tracking_id: tracking_id,
 			p_status: status,
@@ -238,7 +236,7 @@ export async function shippingProduct(
 		const { tracking_id } = req.params;
 		const user_id = req.user.id;
 
-		const { data, error } = await supabase.rpc("update_order_status", {
+		const { data, error } = await createSupabaseClient().rpc("update_order_status", {
 			p_user_id: user_id,
 			p_tracking_id: tracking_id,
 			p_status: "shipping",
@@ -270,7 +268,7 @@ export async function confirmShipping(
 		const { tracking_id } = req.params;
 		const user_id = req.user.id;
 
-		const { data, error } = await supabase.rpc("update_order_status", {
+		const { data, error } = await createSupabaseClient().rpc("update_order_status", {
 			p_user_id: user_id,
 			p_tracking_id: tracking_id,
 			p_status: "shipped",
@@ -302,7 +300,7 @@ export async function cancelOrder(
 		const { tracking_id } = req.params;
 		const user_id = req.user.id;
 
-		const { data, error } = await supabase.rpc("update_order_status", {
+		const { data, error } = await createSupabaseClient().rpc("update_order_status", {
 			p_user_id: user_id,
 			p_tracking_id: tracking_id,
 			p_status: "cancelled",
@@ -334,7 +332,7 @@ export async function confirmReceived(
 		const { tracking_id } = req.params;
 		const user_id = req.user.id;
 
-		const { data, error } = await supabase.rpc("update_order_status", {
+		const { data, error } = await createSupabaseClient().rpc("update_order_status", {
 			p_user_id: user_id,
 			p_tracking_id: tracking_id,
 			p_status: "completed",
@@ -378,7 +376,7 @@ export async function raiseDispute(
 		const { reason, evidence_urls } = parsed.data;
 
 		// Get order by tracking_id
-		const { data: orderData, error: orderError } = await supabase.rpc(
+		const { data: orderData, error: orderError } = await createSupabaseClient().rpc(
 			"get_order_by_tracking_id",
 			{
 				p_tracking_id: tracking_id,
@@ -399,7 +397,7 @@ export async function raiseDispute(
 		console.log(product);
 
 		// Update order status to disputed
-		const { error: statusError } = await supabase.rpc("update_order_status", {
+		const { error: statusError } = await createSupabaseClient().rpc("update_order_status", {
 			p_user_id: buyer_id,
 			p_tracking_id: tracking_id,
 			p_status: "dispute",
@@ -415,8 +413,7 @@ export async function raiseDispute(
 		}
 
 		// Create dispute record
-		const { data, error } = await supabase
-			.from("disputes")
+		const { data, error } = await createSupabaseClient().from("disputes")
 			.insert([
 				{
 					order_id: order_id,

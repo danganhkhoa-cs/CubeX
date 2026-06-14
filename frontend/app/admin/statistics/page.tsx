@@ -318,18 +318,19 @@ export default function AdminStatisticsPage() {
       {
         name: "dispute",
         value: dispute,
-        fill: "var(--color-dispute)",
+        fill: "var(--color-normal)",
       },
       {
         name: "normal",
         value: normal,
-        fill: "var(--color-normal)",
+        fill: "var(--color-dispute)",
       },
     ]
   }, [granularity, orders])
 
   const disputePercentForRange = useMemo(() => {
-    const dispute = disputePieData.find((item) => item.name === "dispute")?.value ?? 0
+    const dispute =
+      disputePieData.find((item) => item.name === "dispute")?.value ?? 0
     const total = disputePieData.reduce((sum, item) => sum + item.value, 0)
     if (total === 0) return 0
     return (dispute / total) * 100
@@ -351,7 +352,9 @@ export default function AdminStatisticsPage() {
       ["dispute", "disputed"].includes(String(order.status))
     ).length
     const disputeRate =
-      totalOrders === 0 ? 0 : Number(((totalDispute / totalOrders) * 100).toFixed(2))
+      totalOrders === 0
+        ? 0
+        : Number(((totalDispute / totalOrders) * 100).toFixed(2))
 
     return {
       totalCompletedOrders,
@@ -396,7 +399,11 @@ export default function AdminStatisticsPage() {
             Top seller trend, platform fee earning, and dispute rate analytics.
           </p>
         </div>
-        <Button variant="outline" onClick={() => void loadStatistics()} disabled={loading}>
+        <Button
+          variant="outline"
+          onClick={() => void loadStatistics()}
+          disabled={loading}
+        >
           <RefreshCw className={loading ? "animate-spin" : ""} />
           Refresh
         </Button>
@@ -423,14 +430,18 @@ export default function AdminStatisticsPage() {
             <Badge variant="outline">
               Platform fee: {formatCurrency(summary.totalPlatformFee)}
             </Badge>
-            <Badge variant="outline">Dispute rate: {summary.disputeRate}%</Badge>
+            <Badge variant="outline">
+              Dispute rate: {summary.disputeRate}%
+            </Badge>
           </div>
         </CardContent>
       </Card>
 
       {error && (
         <Card>
-          <CardContent className="py-6 text-sm text-destructive">{error}</CardContent>
+          <CardContent className="py-6 text-sm text-destructive">
+            {error}
+          </CardContent>
         </Card>
       )}
 
@@ -504,7 +515,10 @@ export default function AdminStatisticsPage() {
                 config={platformFeeChartConfig}
                 className="h-[320px] w-full"
               >
-                <LineChart data={platformFeeData} margin={{ left: 8, right: 8 }}>
+                <LineChart
+                  data={platformFeeData}
+                  margin={{ left: 8, right: 8 }}
+                >
                   <CartesianGrid vertical={false} />
                   <XAxis
                     dataKey="label"
@@ -514,7 +528,9 @@ export default function AdminStatisticsPage() {
                     minTickGap={24}
                   />
                   <YAxis
-                    tickFormatter={(value) => `$${Number(value).toLocaleString()}`}
+                    tickFormatter={(value) =>
+                      `$${Number(value).toLocaleString()}`
+                    }
                   />
                   <ChartTooltip
                     content={
@@ -555,7 +571,9 @@ export default function AdminStatisticsPage() {
                 className="h-[320px] w-full"
               >
                 <PieChart>
-                  <ChartTooltip content={<ChartTooltipContent nameKey="name" />} />
+                  <ChartTooltip
+                    content={<ChartTooltipContent nameKey="name" />}
+                  />
                   <Pie
                     data={disputePieData}
                     dataKey="value"

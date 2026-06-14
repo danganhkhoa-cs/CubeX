@@ -1,6 +1,7 @@
-import { supabase } from "../config/supabase";
+import { createSupabaseClient } from "../config/supabase";
 import { Request, Response } from "express";
 import { z } from "zod";
+import type { CookieOptions } from "express";
 import { sendServerError } from "../utils/sendServerError";
 import { AuthRequest } from "../types/authrequest";
 
@@ -26,6 +27,34 @@ const updateProfileSchema = z.object({
 	phone: z.string().optional(),
 });
 
+function getAccessTokenCookieOptions(): CookieOptions {
+	const isProduction = process.env.NODE_ENV === "production";
+	const cookieDomain = process.env.COOKIE_DOMAIN?.trim();
+
+	return {
+		httpOnly: true,
+		secure: isProduction,
+		sameSite: isProduction ? "none" : "lax",
+		maxAge: 1000 * 60 * 60,
+		domain: cookieDomain || undefined,
+		path: "/",
+	};
+}
+
+function getRefreshTokenCookieOptions(): CookieOptions {
+	const isProduction = process.env.NODE_ENV === "production";
+	const cookieDomain = process.env.COOKIE_DOMAIN?.trim();
+
+	return {
+		httpOnly: true,
+		secure: isProduction,
+		sameSite: isProduction ? "none" : "lax",
+		maxAge: 1000 * 60 * 60 * 24 * 30,
+		domain: cookieDomain || undefined,
+		path: "/",
+	};
+}
+
 // Đăng ký tài khoản
 export async function signUp(req: Request, res: Response): Promise<void> {
 	try {
@@ -41,13 +70,14 @@ export async function signUp(req: Request, res: Response): Promise<void> {
 
 		const { email, password, username, full_name } = parsed.data;
 
-		const { data, error } = await supabase.auth.signUp({
+		const { data, error } = await createSupabaseClient().auth.signUp({
 			email: email,
 			password: password,
 			options: {
 				data: {
 					username: username,
 					full_name: full_name,
+					role: "user",
 				},
 			},
 		});
@@ -85,7 +115,7 @@ export async function signIn(req: Request, res: Response): Promise<void> {
 
 		const { email, password } = parsed.data;
 
-		const { data, error } = await supabase.auth.signInWithPassword({
+		const { data, error } = await createSupabaseClient().auth.signInWithPassword({
 			email: email,
 			password: password,
 		});
@@ -98,16 +128,19 @@ export async function signIn(req: Request, res: Response): Promise<void> {
 			return;
 		}
 
-		const token = data.session.access_token;
+		if (!data.session) {
+			res.status(401).json({
+				success: false,
+				message: "No session returned",
+			});
+			return;
+		}
 
-		res.cookie("access_token", token, {
-			httpOnly: true,
-			secure: false,
-			sameSite: "lax",
-			// secure: true,
-			// sameSite: "strict",
-			maxAge: 1000 * 60 * 60,
-		});
+		const token = data.session.access_token;
+		const refreshToken = data.session.refresh_token;
+
+		res.cookie("access_token", token, getAccessTokenCookieOptions());
+		res.cookie("refresh_token", refreshToken, getRefreshTokenCookieOptions());
 		res.status(200).json({
 			success: true,
 			user: data.user,
@@ -142,13 +175,63 @@ export async function signOut(req: Request, res: Response): Promise<void> {
 		// }
 
 		// Xóa cookies
-		res.clearCookie("access_token");
+		res.clearCookie("access_token", getAccessTokenCookieOptions());
+		res.clearCookie("refresh_token", getRefreshTokenCookieOptions());
 		res.status(200).json({
 			success: true,
 			message: "Signout success",
 		});
 	} catch (e) {
 		console.error("Signout error:", e);
+		sendServerError(res);
+	}
+}
+
+export async function refreshSession(
+	req: Request,
+	res: Response,
+): Promise<void> {
+	try {
+		const refreshToken = req.cookies.refresh_token;
+		if (!refreshToken) {
+			res.status(401).json({
+				success: false,
+				message: "There is no refresh session, please signin.",
+			});
+			return;
+		}
+
+		const { data, error } = await createSupabaseClient().auth.refreshSession({
+			refresh_token: refreshToken,
+		});
+
+		if (error || !data.session) {
+			res.clearCookie("access_token", getAccessTokenCookieOptions());
+			res.clearCookie("refresh_token", getRefreshTokenCookieOptions());
+			res.status(401).json({
+				success: false,
+				message: error?.message || "Failed to refresh session",
+			});
+			return;
+		}
+
+		res.cookie(
+			"access_token",
+			data.session.access_token,
+			getAccessTokenCookieOptions(),
+		);
+		res.cookie(
+			"refresh_token",
+			data.session.refresh_token,
+			getRefreshTokenCookieOptions(),
+		);
+
+		res.status(200).json({
+			success: true,
+			user: data.user,
+		});
+	} catch (e) {
+		console.error("Refresh session error:", e);
 		sendServerError(res);
 	}
 }
@@ -160,8 +243,7 @@ export async function getUserInfo(
 	try {
 		const user_id = req.user.id;
 
-		const { data, error } = await supabase
-			.from("profiles")
+		const { data, error } = await createSupabaseClient().from("profiles")
 			.select("*")
 			.eq("user_id", user_id)
 			.single();
@@ -191,8 +273,7 @@ export async function getUserInfoById(
 	try {
 		const { id } = req.params;
 
-		const { data, error } = await supabase
-			.from("profiles_public")
+		const { data, error } = await createSupabaseClient().from("profiles_public")
 			.select("*")
 			.eq("user_id", id)
 			.single();
@@ -271,7 +352,7 @@ export async function updateProfile(
 				.substring(7)}-${file.originalname}`;
 			const filePath = `avatars/${req.user.id}/${fileName}`;
 
-			const { error: uploadError } = await supabase.storage
+			const { error: uploadError } = await createSupabaseClient().storage
 				.from("image")
 				.upload(filePath, file.buffer, {
 					contentType: file.mimetype,
@@ -285,7 +366,7 @@ export async function updateProfile(
 				return;
 			}
 
-			const { data: publicData } = supabase.storage
+			const { data: publicData } = createSupabaseClient().storage
 				.from("image")
 				.getPublicUrl(filePath);
 
@@ -308,8 +389,7 @@ export async function updateProfile(
 			return;
 		}
 
-		const { data, error } = await supabase
-			.from("profiles")
+		const { data, error } = await createSupabaseClient().from("profiles")
 			.update(updates)
 			.eq("user_id", req.user.id)
 			.select("*")

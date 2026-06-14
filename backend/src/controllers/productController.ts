@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { z } from "zod";
 import { AuthRequest } from "../types/authrequest";
 import { sendServerError } from "../utils/sendServerError";
-import { supabase } from "../config/supabase";
+import { createSupabaseClient } from "../config/supabase";
 
 const productImageSchema = z.array(z.string().min(1)).nonempty();
 
@@ -38,8 +38,7 @@ export async function getProductSpecs(
 	res: Response,
 ): Promise<void> {
 	try {
-		const { data, error } = await supabase
-			.from("system_configs")
+		const { data, error } = await createSupabaseClient().from("system_configs")
 			.select("value")
 			.eq("id", "specs")
 			.single();
@@ -67,7 +66,7 @@ export async function getProductBrands(
 	res: Response,
 ): Promise<void> {
 	try {
-		const { data, error } = await supabase.from("brands").select("*");
+		const { data, error } = await createSupabaseClient().from("brands").select("*");
 
 		if (error || !data || data.length === 0) {
 			res.status(404).json({
@@ -92,7 +91,7 @@ export async function getProductCategories(
 	res: Response,
 ): Promise<void> {
 	try {
-		const { data, error } = await supabase.from("categories").select("*");
+		const { data, error } = await createSupabaseClient().from("categories").select("*");
 
 		if (error || !data || data.length === 0) {
 			res.status(404).json({
@@ -131,7 +130,7 @@ export async function createProduct(
 		const { title, price, brand_id, category_id, images, description, specs } =
 			parsed.data;
 
-		const { data, error } = await supabase.from("products").insert([
+		const { data, error } = await createSupabaseClient().from("products").insert([
 			{
 				seller_id,
 				title,
@@ -196,6 +195,7 @@ export async function getAllProducts(
 		} = parsed.data;
 
 		const {
+			title,
 			min_price,
 			max_price,
 			category_id,
@@ -210,8 +210,9 @@ export async function getAllProducts(
 			core_material,
 		} = req.body || {};
 
-		let query = supabase.from("products").select(
-			`
+		let query = createSupabaseClient().from("products")
+			.select(
+				`
             id,
 			seller_id,
 			title,
@@ -223,7 +224,8 @@ export async function getAllProducts(
 			specs,
 			created_at
         `,
-		);
+			)
+			.order("created_at", { ascending: false });
 
 		// Filter deleted products
 		query = query.eq("is_deleted", false);
@@ -232,6 +234,11 @@ export async function getAllProducts(
 			query = query.eq("seller_id", seller_id);
 		} else {
 			query = query.eq("is_sold", false);
+		}
+
+		// Filter by title (case-insensitive, partial match)
+		if (title) {
+			query = query.ilike("title", `%${title}%`);
 		}
 
 		// Filter by price
@@ -337,8 +344,7 @@ export async function getProductById(
 	try {
 		const { id } = req.params;
 
-		const { data, error } = await supabase
-			.from("products")
+		const { data, error } = await createSupabaseClient().from("products")
 			.select(
 				`
                 id,
@@ -397,8 +403,7 @@ export async function updateProductById(
 			parsed.data;
 
 		// Get product first
-		const { data: fetchData, error: fetchError } = await supabase
-			.from("products")
+		const { data: fetchData, error: fetchError } = await createSupabaseClient().from("products")
 			.select("seller_id, is_sold")
 			.eq("id", id)
 			.eq("is_deleted", false)
@@ -450,8 +455,7 @@ export async function updateProductById(
 			return;
 		}
 
-		const { data, error } = await supabase
-			.from("products")
+		const { data, error } = await createSupabaseClient().from("products")
 			.update(updateData)
 			.eq("id", id).select(`
 				id,
@@ -493,8 +497,7 @@ export async function deleteProduct(
 		const seller_id = req.user.id;
 
 		// Get product first
-		const { data: product, error: fetchError } = await supabase
-			.from("products")
+		const { data: product, error: fetchError } = await createSupabaseClient().from("products")
 			.select("seller_id, is_deleted")
 			.eq("id", id)
 			.single();
@@ -526,8 +529,7 @@ export async function deleteProduct(
 		}
 
 		// Soft delete - set is_deleted to true
-		const { error } = await supabase
-			.from("products")
+		const { error } = await createSupabaseClient().from("products")
 			.update({ is_deleted: true })
 			.eq("id", id);
 

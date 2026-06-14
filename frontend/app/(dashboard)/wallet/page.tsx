@@ -17,6 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Spinner } from "@/components/ui/spinner"
+import WalletSkeleton from "@/components/WalletSkeleton"
 import {
   Table,
   TableBody,
@@ -237,15 +238,7 @@ export default function WalletPage() {
   }
 
   if (authLoading || pageLoading) {
-    return (
-      <main className="space-y-6">
-        <Card>
-          <CardContent className="p-6 text-sm text-muted-foreground">
-            Loading wallet...
-          </CardContent>
-        </Card>
-      </main>
-    )
+    return <WalletSkeleton />
   }
 
   if (!user) {

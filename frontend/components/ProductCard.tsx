@@ -31,30 +31,9 @@ type ProductCardProps = {
   isHiddenButton?: boolean
 }
 
-const specsLabels: Record<string, string> = {
-  normal: "Normal",
-  se: "SE",
-  limited: "Limited",
-  glossy: "Glossy",
-  matte: "Matte",
-  uv: "UV",
-  none: "None",
-  standard: "Standard",
-  plastic: "Plastic core",
-  metal: "Metal core",
-  ballcore8m: "BallCore 8M",
-  ballcore20m: "BallCore 20M",
-  maglev: "MagLev",
-  magcore: "MagCore",
-}
-
-const specsCustomizationLabels: Record<string, string> = {
-  magcore: "CUST: MagCore",
-  ballcore8m: "CUST: BallCore 8M",
-  ballcore20m: "CUST: BallCore 20M",
-  maglev: "CUST: MagLev",
-  uv: "CUST: UV",
-  other: "CUST: Other",
+function formatCapitalized(value: string) {
+  if (!value) return value
+  return value.charAt(0).toUpperCase() + value.slice(1)
 }
 
 export default function ProductCard({
@@ -119,20 +98,22 @@ export default function ProductCard({
         />
         <div className="flex items-start justify-between gap-2">
           <CardTitle className="text-base">{title}</CardTitle>
-          <div className="flex flex-col items-start gap-1">
-            <Badge variant="secondary">{brandName?.toUpperCase() ?? ""}</Badge>
+          <div className="flex flex-col items-end gap-1">
+            <Badge variant="secondary">
+              {brandName ? formatCapitalized(brandName) : ""}
+            </Badge>
             <Badge variant="ghost">{categoryName}</Badge>
           </div>
         </div>
       </CardHeader>
-      <CardContent className="flex-1 text-sm text-muted-foreground">
+      <CardContent className="mt-3 flex-1 text-sm text-muted-foreground">
         {specs && (
           <div className="flex flex-wrap gap-2">
             {Object.entries(specs).map(([k, v]) => {
               if (k === "customization_types") {
                 if (Array.isArray(v)) {
                   return v.map((item) => {
-                    const label = specsCustomizationLabels[item] || item
+                    const label = formatCapitalized(item)
                     return (
                       <Badge key={`${k}-${item}`} variant="outline">
                         {label}
@@ -141,7 +122,7 @@ export default function ProductCard({
                   })
                 }
               } else {
-                const label = specsLabels[v as string] || v
+                const label = formatCapitalized(String(v))
                 return (
                   <Badge key={k} variant="outline">
                     {label}

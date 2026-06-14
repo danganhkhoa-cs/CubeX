@@ -15,7 +15,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
 import { useFilter } from "@/hooks/filter/useFilter"
 import { productService } from "@/service/products"
@@ -23,25 +22,9 @@ import { toast } from "sonner"
 
 const EMPTY_OPTION = "__empty__"
 
-const labelMap: Record<string, string> = {
-  gan: "GAN",
-  moyu: "MoYu",
-  qiyi: "QiYi",
-  se: "SE",
-  uv: "UV",
-  maglev: "MagLev",
-  magcore: "MagCore",
-  ballcore8m: "BallCore 8M",
-  ballcore20m: "BallCore 20M",
-}
-
 function formatLabel(value: string) {
-  return (
-    labelMap[value] ??
-    value
-      .replace(/_/g, " ")
-      .replace(/\b\w/g, (character) => character.toUpperCase())
-  )
+  if (!value) return value
+  return value.charAt(0).toUpperCase() + value.slice(1)
 }
 
 export default function Page() {
@@ -112,10 +95,6 @@ export default function Page() {
     const previews = files.map((file) => URL.createObjectURL(file))
     setMoreImages((current) => [...current, ...files])
     setMoreImagePreviews((current) => [...current, ...previews])
-
-    if (moreImagesInputRef.current) {
-      moreImagesInputRef.current.value = ""
-    }
   }
 
   const removeMainImage = () => {
@@ -130,7 +109,13 @@ export default function Page() {
   }
 
   const removeMoreImage = (index: number) => {
-    setMoreImages((current) => current.filter((_, i) => i !== index))
+    setMoreImages((current) => {
+      const next = current.filter((_, i) => i !== index)
+      if (next.length === 0 && moreImagesInputRef.current) {
+        moreImagesInputRef.current.value = ""
+      }
+      return next
+    })
     setMoreImagePreviews((current) => {
       const preview = current[index]
       if (preview) {
@@ -221,6 +206,9 @@ export default function Page() {
       setCustomizationTypes([])
       removeMainImage()
       setMoreImages([])
+      if (moreImagesInputRef.current) {
+        moreImagesInputRef.current.value = ""
+      }
       moreImagePreviews.forEach((preview) => URL.revokeObjectURL(preview))
       setMoreImagePreviews([])
     } catch (err) {
@@ -328,8 +316,6 @@ export default function Page() {
             />
           </div>
 
-          <Separator />
-
           <div className="space-y-4">
             <div className="space-y-3">
               <Label>Main image</Label>
@@ -372,6 +358,12 @@ export default function Page() {
                 onChange={handleMoreImagesChange}
                 disabled={submitting}
               />
+              {moreImages.length > 0 && (
+                <p className="text-sm text-muted-foreground">
+                  {moreImages.length} image
+                  {moreImages.length > 1 ? "s" : ""} selected
+                </p>
+              )}
               {moreImagePreviews.length > 0 && (
                 <div className="grid gap-3 sm:grid-cols-3">
                   {moreImagePreviews.map((preview, index) => (
@@ -400,8 +392,6 @@ export default function Page() {
               <p className="text-sm text-destructive">{uploadError}</p>
             )}
           </div>
-
-          <Separator />
 
           <div className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
@@ -518,7 +508,7 @@ export default function Page() {
             </div>
 
             <div className="space-y-3">
-              <p className="text-sm font-medium text-foreground">
+              <p className="text-xs font-semibold text-foreground uppercase">
                 Customization types
               </p>
               <div className="grid gap-3 sm:grid-cols-2">

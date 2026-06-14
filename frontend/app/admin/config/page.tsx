@@ -1,12 +1,31 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { AlertTriangle, Plus, RefreshCw, Save, X } from "lucide-react"
+import {
+  AlertTriangle,
+  CircleDollarSign,
+  Plus,
+  RefreshCw,
+  Save,
+  X,
+} from "lucide-react"
 import { toast } from "sonner"
 
 import { useAuth } from "@/hooks/auth/useAuth"
 import { adminService } from "@/service/admin"
 import type { AdminConfigRow } from "@/service/admin/types"
+import { productService } from "@/service/products"
+import type { ProductBrand, ProductCategory } from "@/service/products/types"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -36,6 +55,12 @@ type WalletDraft = {
   escrow_wallet_id: string
   admin_wallet_id: string
 }
+
+type CatalogAction =
+  | "brand-update"
+  | "brand-delete"
+  | "category-update"
+  | "category-delete"
 
 type SpecsDraft = Record<SpecKey, string[]>
 type SpecInputDraft = Record<SpecKey, string>
@@ -88,15 +113,18 @@ function parsePlatformFee(value: unknown): PlatformFeeDraft {
   if (!isObjectRecord(value)) {
     return { percent: "", min_fee: "" }
   }
+
+  const minFee =
+    value.min_fee === undefined || value.min_fee === null
+      ? ""
+      : String(Number(value.min_fee) / 100)
+
   return {
     percent:
       value.percent === undefined || value.percent === null
         ? ""
         : String(value.percent),
-    min_fee:
-      value.min_fee === undefined || value.min_fee === null
-        ? ""
-        : String(value.min_fee),
+    min_fee: minFee,
   }
 }
 
@@ -162,6 +190,20 @@ function areStringArraysEqual(a: string[], b: string[]) {
   return a.every((value, index) => value === b[index])
 }
 
+function compareNameWithOtherLast(a: string, b: string) {
+  const aTrimmed = a.trim()
+  const bTrimmed = b.trim()
+  const aIsOther = aTrimmed.toLowerCase() === "other"
+  const bIsOther = bTrimmed.toLowerCase() === "other"
+
+  if (aIsOther && !bIsOther) return 1
+  if (!aIsOther && bIsOther) return -1
+
+  return aTrimmed.localeCompare(bTrimmed, undefined, {
+    sensitivity: "base",
+  })
+}
+
 function SpecsField({
   field,
   values,
@@ -211,7 +253,7 @@ function SpecsField({
             value={inputValue}
             onChange={(event) => onInputChange(event.target.value)}
             placeholder={`Add ${SPEC_LABELS[field].toLowerCase()} option`}
-            className="px-2 border-b-transparent focus-visible:border-b-transparent"
+            className="border-b-transparent px-2 focus-visible:border-b-transparent"
           />
         </div>
         <Button type="button" variant="outline" onClick={onAdd}>
@@ -251,13 +293,30 @@ export default function AdminConfigPage() {
   })
 
   const [specs, setSpecs] = useState<SpecsDraft>(createEmptySpecs())
-  const [specsBaseline, setSpecsBaseline] = useState<SpecsDraft>(
-    createEmptySpecs()
-  )
+  const [specsBaseline, setSpecsBaseline] =
+    useState<SpecsDraft>(createEmptySpecs())
   const [specInputs, setSpecInputs] = useState<SpecInputDraft>(
     createEmptySpecInputs()
   )
   const [specsExtra, setSpecsExtra] = useState<Record<string, unknown>>({})
+
+  const [brands, setBrands] = useState<ProductBrand[]>([])
+  const [categories, setCategories] = useState<ProductCategory[]>([])
+  const [newBrandName, setNewBrandName] = useState("")
+  const [newCategoryName, setNewCategoryName] = useState("")
+  const [brandSearch, setBrandSearch] = useState("")
+  const [categorySearch, setCategorySearch] = useState("")
+  const [brandRenameDrafts, setBrandRenameDrafts] = useState<
+    Record<string, string>
+  >({})
+  const [categoryRenameDrafts, setCategoryRenameDrafts] = useState<
+    Record<string, string>
+  >({})
+  const [catalogActionKey, setCatalogActionKey] = useState<string | null>(null)
+  const [catalogConfirm, setCatalogConfirm] = useState<{
+    action: CatalogAction
+    id: string
+  } | null>(null)
 
   const [otherDrafts, setOtherDrafts] = useState<Record<string, string>>({})
   const [otherBaseline, setOtherBaseline] = useState<Record<string, string>>({})
@@ -272,8 +331,22 @@ export default function AdminConfigPage() {
     setLoading(true)
     setError(null)
     try {
-      const data = await adminService.getConfig()
+      const [data, brandList, categoryList] = await Promise.all([
+        adminService.getConfig(),
+        productService.getBrands(),
+        productService.getCategories(),
+      ])
       setConfigRows(data)
+      setBrands(brandList)
+      setCategories(categoryList)
+      setBrandRenameDrafts(
+        Object.fromEntries(brandList.map((brand) => [brand.id, brand.name]))
+      )
+      setCategoryRenameDrafts(
+        Object.fromEntries(
+          categoryList.map((category) => [category.id, category.name])
+        )
+      )
 
       const platformRow = data.find((row) => row.id === "platform_fee")
       const walletRow = data.find((row) => row.id === "system_wallets")
@@ -307,7 +380,8 @@ export default function AdminConfigPage() {
       setOtherDrafts(nextOtherDrafts)
       setOtherBaseline(nextOtherDrafts)
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to load config"
+      const message =
+        err instanceof Error ? err.message : "Failed to load config"
       setError(message)
     } finally {
       setLoading(false)
@@ -351,6 +425,24 @@ export default function AdminConfigPage() {
     )
   }, [configRows])
 
+  const filteredBrands = useMemo(() => {
+    const keyword = brandSearch.trim().toLowerCase()
+    const source = keyword
+      ? brands.filter((brand) => brand.name.toLowerCase().includes(keyword))
+      : brands
+    return [...source].sort((a, b) => compareNameWithOtherLast(a.name, b.name))
+  }, [brandSearch, brands])
+
+  const filteredCategories = useMemo(() => {
+    const keyword = categorySearch.trim().toLowerCase()
+    const source = keyword
+      ? categories.filter((category) =>
+          category.name.toLowerCase().includes(keyword)
+        )
+      : categories
+    return [...source].sort((a, b) => compareNameWithOtherLast(a.name, b.name))
+  }, [categorySearch, categories])
+
   const isOtherDirty = useCallback(
     (id: string) => otherDrafts[id] !== otherBaseline[id],
     [otherBaseline, otherDrafts]
@@ -366,7 +458,7 @@ export default function AdminConfigPage() {
 
     const payload = {
       percent: Math.trunc(percent),
-      min_fee: Math.trunc(minFee),
+      min_fee: Math.round(minFee * 100),
     }
 
     setSavingId("platform_fee")
@@ -441,7 +533,9 @@ export default function AdminConfigPage() {
       setSpecInputs(createEmptySpecInputs())
       toast.success('Updated "specs"')
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to update "specs"')
+      toast.error(
+        err instanceof Error ? err.message : 'Failed to update "specs"'
+      )
     } finally {
       setSavingId(null)
     }
@@ -468,7 +562,9 @@ export default function AdminConfigPage() {
       setOtherBaseline((prev) => ({ ...prev, [id]: nextText }))
       toast.success(`Updated "${id}"`)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : `Failed to update "${id}"`)
+      toast.error(
+        err instanceof Error ? err.message : `Failed to update "${id}"`
+      )
     } finally {
       setSavingId(null)
     }
@@ -489,6 +585,204 @@ export default function AdminConfigPage() {
       ...prev,
       [field]: prev[field].filter((value) => value !== option),
     }))
+  }
+
+  const refreshCatalog = useCallback(async () => {
+    const [brandList, categoryList] = await Promise.all([
+      productService.getBrands(),
+      productService.getCategories(),
+    ])
+    setBrands(brandList)
+    setCategories(categoryList)
+    setBrandRenameDrafts(
+      Object.fromEntries(brandList.map((brand) => [brand.id, brand.name]))
+    )
+    setCategoryRenameDrafts(
+      Object.fromEntries(
+        categoryList.map((category) => [category.id, category.name])
+      )
+    )
+  }, [])
+
+  const handleAddBrand = async () => {
+    const name = newBrandName.trim()
+    if (!name) {
+      toast.error("Brand name is required")
+      return
+    }
+    setCatalogActionKey("brand:add")
+    try {
+      await adminService.addBrand(name)
+      setNewBrandName("")
+      await refreshCatalog()
+      toast.success("Brand added")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to add brand")
+    } finally {
+      setCatalogActionKey(null)
+    }
+  }
+
+  const handleRenameBrand = async (id: string) => {
+    const newName = (brandRenameDrafts[id] || "").trim()
+    if (!newName) {
+      toast.error("Brand name is required")
+      return
+    }
+    setCatalogActionKey(`brand:rename:${id}`)
+    try {
+      await adminService.renameBrand(id, newName)
+      await refreshCatalog()
+      toast.success("Brand updated")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update brand")
+    } finally {
+      setCatalogActionKey(null)
+    }
+  }
+
+  const handleDeleteBrand = async (id: string) => {
+    setCatalogActionKey(`brand:delete:${id}`)
+    try {
+      await adminService.deleteBrand(id)
+      await refreshCatalog()
+      toast.success("Brand deleted")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete brand")
+    } finally {
+      setCatalogActionKey(null)
+    }
+  }
+
+  const handleAddCategory = async () => {
+    const name = newCategoryName.trim()
+    if (!name) {
+      toast.error("Category name is required")
+      return
+    }
+    setCatalogActionKey("category:add")
+    try {
+      await adminService.addCategory(name)
+      setNewCategoryName("")
+      await refreshCatalog()
+      toast.success("Category added")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to add category")
+    } finally {
+      setCatalogActionKey(null)
+    }
+  }
+
+  const handleRenameCategory = async (id: string) => {
+    const newName = (categoryRenameDrafts[id] || "").trim()
+    if (!newName) {
+      toast.error("Category name is required")
+      return
+    }
+    setCatalogActionKey(`category:rename:${id}`)
+    try {
+      await adminService.renameCategory(id, newName)
+      await refreshCatalog()
+      toast.success("Category updated")
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to update category"
+      )
+    } finally {
+      setCatalogActionKey(null)
+    }
+  }
+
+  const handleDeleteCategory = async (id: string) => {
+    setCatalogActionKey(`category:delete:${id}`)
+    try {
+      await adminService.deleteCategory(id)
+      await refreshCatalog()
+      toast.success("Category deleted")
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to delete category"
+      )
+    } finally {
+      setCatalogActionKey(null)
+    }
+  }
+
+  const handleConfirmCatalogAction = async () => {
+    if (!catalogConfirm) return
+    const { action, id } = catalogConfirm
+
+    if (action === "brand-update") {
+      await handleRenameBrand(id)
+      setCatalogConfirm(null)
+      return
+    }
+
+    if (action === "brand-delete") {
+      await handleDeleteBrand(id)
+      setCatalogConfirm(null)
+      return
+    }
+
+    if (action === "category-update") {
+      await handleRenameCategory(id)
+      setCatalogConfirm(null)
+      return
+    }
+
+    await handleDeleteCategory(id)
+    setCatalogConfirm(null)
+  }
+
+  const getCatalogConfirmContent = () => {
+    if (!catalogConfirm) {
+      return {
+        title: "Confirm action",
+        description: "Are you sure?",
+        actionLabel: "Confirm",
+        destructive: false,
+      }
+    }
+
+    if (catalogConfirm.action === "brand-update") {
+      return {
+        title: "Update brand",
+        description: `Confirm updating this brand name to "${(
+          brandRenameDrafts[catalogConfirm.id] || ""
+        ).trim()}"?`,
+        actionLabel: "Update",
+        destructive: false,
+      }
+    }
+
+    if (catalogConfirm.action === "brand-delete") {
+      return {
+        title: "Delete brand",
+        description:
+          "Are you sure you want to delete this brand? This action cannot be undone.",
+        actionLabel: "Delete",
+        destructive: true,
+      }
+    }
+
+    if (catalogConfirm.action === "category-update") {
+      return {
+        title: "Update category",
+        description: `Confirm updating this category name to "${(
+          categoryRenameDrafts[catalogConfirm.id] || ""
+        ).trim()}"?`,
+        actionLabel: "Update",
+        destructive: false,
+      }
+    }
+
+    return {
+      title: "Delete category",
+      description:
+        "Are you sure you want to delete this category? This action cannot be undone.",
+      actionLabel: "Delete",
+      destructive: true,
+    }
   }
 
   if (authLoading) {
@@ -560,7 +854,7 @@ export default function AdminConfigPage() {
             <CardHeader className="space-y-2">
               <div className="flex items-center gap-2">
                 <CardTitle className="text-base">Platform fee</CardTitle>
-                <Badge variant={platformFeeDirty ? "secondary" : "outline"}>
+                <Badge variant={platformFeeDirty ? "destructive" : "outline"}>
                   {platformFeeDirty ? "Unsaved changes" : "Saved"}
                 </Badge>
               </div>
@@ -588,18 +882,19 @@ export default function AdminConfigPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="platform-fee-min-fee">Min fee</Label>
-                  <Input
-                    id="platform-fee-min-fee"
-                    className="px-2"
-                    inputMode="numeric"
-                    value={platformFee.min_fee}
-                    onChange={(event) =>
-                      setPlatformFee((prev) => ({
-                        ...prev,
-                        min_fee: event.target.value,
-                      }))
-                    }
-                  />
+                  <div className="relative">
+                    <Input
+                      id="platform-fee-min-fee"
+                      inputMode="decimal"
+                      value={platformFee.min_fee}
+                      onChange={(event) =>
+                        setPlatformFee((prev) => ({
+                          ...prev,
+                          min_fee: event.target.value,
+                        }))
+                      }
+                    />
+                  </div>
                 </div>
               </div>
               <div className="flex justify-end">
@@ -621,7 +916,7 @@ export default function AdminConfigPage() {
             <CardHeader className="space-y-2">
               <div className="flex items-center gap-2">
                 <CardTitle className="text-base">System wallets</CardTitle>
-                <Badge variant={walletsDirty ? "secondary" : "outline"}>
+                <Badge variant={walletsDirty ? "destructive" : "outline"}>
                   {walletsDirty ? "Unsaved changes" : "Saved"}
                 </Badge>
               </div>
@@ -680,7 +975,7 @@ export default function AdminConfigPage() {
             <CardHeader className="space-y-2">
               <div className="flex items-center gap-2">
                 <CardTitle className="text-base">Specs options</CardTitle>
-                <Badge variant={specsDirty ? "secondary" : "outline"}>
+                <Badge variant={specsDirty ? "destructive" : "outline"}>
                   {specsDirty ? "Unsaved changes" : "Saved"}
                 </Badge>
               </div>
@@ -717,6 +1012,229 @@ export default function AdminConfigPage() {
               </div>
             </CardContent>
           </Card>
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Brands</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="brand-search">Search brands</Label>
+                  <Input
+                    id="brand-search"
+                    className="px-2"
+                    value={brandSearch}
+                    onChange={(event) => setBrandSearch(event.target.value)}
+                    placeholder="Type to filter brands..."
+                  />
+                </div>
+                <div className="flex items-end gap-2">
+                  <div className="flex-1 space-y-2">
+                    <Label htmlFor="new-brand-name">Add brand</Label>
+                    <Input
+                      id="new-brand-name"
+                      className="px-2"
+                      value={newBrandName}
+                      onChange={(event) => setNewBrandName(event.target.value)}
+                      placeholder="Add new brand"
+                      disabled={!!catalogActionKey}
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => void handleAddBrand()}
+                    disabled={!!catalogActionKey}
+                  >
+                    <Plus />
+                    Add
+                  </Button>
+                </div>
+                <div className="space-y-2">
+                  {filteredBrands.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      {brands.length === 0
+                        ? "No brands found."
+                        : "No brands match your search."}
+                    </p>
+                  ) : (
+                    filteredBrands.map((brand) => {
+                      const renameKey = `brand:rename:${brand.id}`
+                      const deleteKey = `brand:delete:${brand.id}`
+                      const isRenaming = catalogActionKey === renameKey
+                      const isDeleting = catalogActionKey === deleteKey
+                      return (
+                        <div
+                          key={brand.id}
+                          className="grid gap-2 rounded-sm border border-border p-3"
+                        >
+                          <div className="space-y-2">
+                            <Label htmlFor={`brand-${brand.id}`}>Name</Label>
+                            <Input
+                              id={`brand-${brand.id}`}
+                              className="px-2"
+                              value={brandRenameDrafts[brand.id] ?? brand.name}
+                              onChange={(event) =>
+                                setBrandRenameDrafts((prev) => ({
+                                  ...prev,
+                                  [brand.id]: event.target.value,
+                                }))
+                              }
+                              disabled={!!catalogActionKey}
+                            />
+                          </div>
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="outline"
+                              type="button"
+                              disabled={!!catalogActionKey}
+                              onClick={() =>
+                                setCatalogConfirm({
+                                  action: "brand-update",
+                                  id: brand.id,
+                                })
+                              }
+                            >
+                              <Save />
+                              {isRenaming ? "Saving..." : "Update"}
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              type="button"
+                              disabled={!!catalogActionKey}
+                              onClick={() =>
+                                setCatalogConfirm({
+                                  action: "brand-delete",
+                                  id: brand.id,
+                                })
+                              }
+                            >
+                              {isDeleting ? "Deleting..." : "Delete"}
+                            </Button>
+                          </div>
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Categories</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="category-search">Search categories</Label>
+                  <Input
+                    id="category-search"
+                    className="px-2"
+                    value={categorySearch}
+                    onChange={(event) => setCategorySearch(event.target.value)}
+                    placeholder="Type to filter categories..."
+                  />
+                </div>
+                <div className="flex items-end gap-2">
+                  <div className="flex-1 space-y-2">
+                    <Label htmlFor="new-category-name">Add category</Label>
+                    <Input
+                      id="new-category-name"
+                      className="px-2"
+                      value={newCategoryName}
+                      onChange={(event) =>
+                        setNewCategoryName(event.target.value)
+                      }
+                      placeholder="Add new category"
+                      disabled={!!catalogActionKey}
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => void handleAddCategory()}
+                    disabled={!!catalogActionKey}
+                  >
+                    <Plus />
+                    Add
+                  </Button>
+                </div>
+                <div className="space-y-2">
+                  {filteredCategories.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      {categories.length === 0
+                        ? "No categories found."
+                        : "No categories match your search."}
+                    </p>
+                  ) : (
+                    filteredCategories.map((category) => {
+                      const renameKey = `category:rename:${category.id}`
+                      const deleteKey = `category:delete:${category.id}`
+                      const isRenaming = catalogActionKey === renameKey
+                      const isDeleting = catalogActionKey === deleteKey
+                      return (
+                        <div
+                          key={category.id}
+                          className="grid gap-2 rounded-md border border-border p-3"
+                        >
+                          <div className="space-y-2">
+                            <Label htmlFor={`category-${category.id}`}>
+                              Name
+                            </Label>
+                            <Input
+                              id={`category-${category.id}`}
+                              className="px-2"
+                              value={
+                                categoryRenameDrafts[category.id] ??
+                                category.name
+                              }
+                              onChange={(event) =>
+                                setCategoryRenameDrafts((prev) => ({
+                                  ...prev,
+                                  [category.id]: event.target.value,
+                                }))
+                              }
+                              disabled={!!catalogActionKey}
+                            />
+                          </div>
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="outline"
+                              type="button"
+                              disabled={!!catalogActionKey}
+                              onClick={() =>
+                                setCatalogConfirm({
+                                  action: "category-update",
+                                  id: category.id,
+                                })
+                              }
+                            >
+                              <Save />
+                              {isRenaming ? "Saving..." : "Update"}
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              type="button"
+                              disabled={!!catalogActionKey}
+                              onClick={() =>
+                                setCatalogConfirm({
+                                  action: "category-delete",
+                                  id: category.id,
+                                })
+                              }
+                            >
+                              {isDeleting ? "Deleting..." : "Delete"}
+                            </Button>
+                          </div>
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
 
           {otherRows.length > 0 && (
             <Card>
@@ -764,6 +1282,42 @@ export default function AdminConfigPage() {
           )}
         </div>
       )}
+
+      <AlertDialog
+        open={!!catalogConfirm}
+        onOpenChange={(open) => {
+          if (!open && !catalogActionKey) {
+            setCatalogConfirm(null)
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {getCatalogConfirmContent().title}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {getCatalogConfirmContent().description}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={!!catalogActionKey}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className={
+                getCatalogConfirmContent().destructive
+                  ? "bg-destructive/10 text-destructive hover:bg-destructive/20"
+                  : undefined
+              }
+              disabled={!!catalogActionKey}
+              onClick={() => void handleConfirmCatalogAction()}
+            >
+              {getCatalogConfirmContent().actionLabel}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </main>
   )
 }

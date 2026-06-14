@@ -53,6 +53,11 @@ function getInitials(name: string) {
   return initials || "U"
 }
 
+function getProfileFieldValue(value: string, isEditing: boolean) {
+  if (isEditing) return value
+  return value || "------"
+}
+
 export default function ProfilePage() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -305,7 +310,7 @@ export default function ProfilePage() {
                 <Input
                   id="phone"
                   name="phone"
-                  value={formData.phone || !isEditing ? "------" : ""}
+                  value={getProfileFieldValue(formData.phone, isEditing)}
                   onChange={handleInputChange}
                   disabled={!isEditing || saving}
                 />
@@ -315,7 +320,7 @@ export default function ProfilePage() {
                 <Input
                   id="city"
                   name="city"
-                  value={formData.city || !isEditing ? "------" : ""}
+                  value={getProfileFieldValue(formData.city, isEditing)}
                   onChange={handleInputChange}
                   disabled={!isEditing || saving}
                 />
@@ -325,7 +330,7 @@ export default function ProfilePage() {
                 <Input
                   id="district"
                   name="district"
-                  value={formData.district || !isEditing ? "------" : ""}
+                  value={getProfileFieldValue(formData.district, isEditing)}
                   onChange={handleInputChange}
                   disabled={!isEditing || saving}
                 />
@@ -335,7 +340,7 @@ export default function ProfilePage() {
                 <Input
                   id="street"
                   name="street"
-                  value={formData.street || !isEditing ? "------" : ""}
+                  value={getProfileFieldValue(formData.street, isEditing)}
                   onChange={handleInputChange}
                   disabled={!isEditing || saving}
                 />

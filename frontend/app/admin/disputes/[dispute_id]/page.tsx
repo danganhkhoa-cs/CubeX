@@ -40,32 +40,6 @@ import { Skeleton } from "@/components/ui/skeleton"
 
 type ProfileMap = Record<string, UserProfilePublic>
 
-const specsLabels: Record<string, string> = {
-  normal: "Normal",
-  se: "SE",
-  limited: "Limited",
-  glossy: "Glossy",
-  matte: "Matte",
-  uv: "UV",
-  none: "None",
-  standard: "Standard",
-  plastic: "Plastic core",
-  metal: "Metal core",
-  ballcore8m: "BallCore 8M",
-  ballcore20m: "BallCore 20M",
-  maglev: "MagLev",
-  magcore: "MagCore",
-}
-
-const specsCustomizationLabels: Record<string, string> = {
-  magcore: "CUST: MagCore",
-  ballcore8m: "CUST: BallCore 8M",
-  ballcore20m: "CUST: BallCore 20M",
-  maglev: "CUST: MagLev",
-  uv: "CUST: UV",
-  other: "CUST: Other",
-}
-
 function formatCurrency(cents?: number) {
   if (typeof cents !== "number") return "-"
   return (cents / 100).toLocaleString("en-US", {
@@ -93,8 +67,9 @@ function getInitials(name?: string) {
   )
 }
 
-function formatSpecValue(value: string) {
-  return specsLabels[value] || value
+function formatCapitalized(value: string) {
+  if (!value) return value
+  return value.charAt(0).toUpperCase() + value.slice(1)
 }
 
 function getResolutionLabel(value: AdminDispute["resolution"]) {
@@ -458,7 +433,7 @@ export default function AdminDisputeDetailPage() {
                 <Badge variant="secondary">
                   <span className="inline-flex items-center gap-1.5">
                     <Tag className="size-3.5" />
-                    {brandName.toUpperCase()}
+                    {formatCapitalized(brandName)}
                   </span>
                 </Badge>
                 <Badge variant="ghost">
@@ -483,8 +458,7 @@ export default function AdminDisputeDetailPage() {
                           >
                             <span className="inline-flex items-center gap-1.5">
                               <Settings2 className="size-3.5" />
-                              {specsCustomizationLabels[String(item)] ||
-                                String(item)}
+                              {formatCapitalized(String(item))}
                             </span>
                           </Badge>
                         ))
@@ -498,7 +472,7 @@ export default function AdminDisputeDetailPage() {
                           >
                             <span className="inline-flex items-center gap-1.5">
                               <Settings2 className="size-3.5" />
-                              {formatSpecValue(String(item))}
+                              {formatCapitalized(String(item))}
                             </span>
                           </Badge>
                         ))
@@ -508,7 +482,7 @@ export default function AdminDisputeDetailPage() {
                         <Badge key={key} variant="outline">
                           <span className="inline-flex items-center gap-1.5">
                             <Settings2 className="size-3.5" />
-                            {formatSpecValue(String(value))}
+                            {formatCapitalized(String(value))}
                           </span>
                         </Badge>
                       )

@@ -1,7 +1,7 @@
 import { Response, NextFunction } from "express";
 import { AuthRequest } from "../types/authrequest";
 import { sendServerError } from "../utils/sendServerError";
-import { supabase } from "../config/supabase";
+import { createSupabaseClient } from "../config/supabase";
 
 export async function requireAdmin(
 	req: AuthRequest,
@@ -18,7 +18,7 @@ export async function requireAdmin(
 			return;
 		}
 
-		const { data, error } = await supabase.auth.getUser(token);
+		const { data, error } = await createSupabaseClient().auth.getUser(token);
 		if (error) {
 			res.status(401).json({
 				success: false,
@@ -30,8 +30,7 @@ export async function requireAdmin(
 		const userId = data.user.id;
 		console.log("Admin middleware - user ID:", userId);
 
-		const { data: profileData, error: profileError } = await supabase
-			.from("profiles")
+		const { data: profileData, error: profileError } = await createSupabaseClient().from("profiles")
 			.select("role")
 			.eq("user_id", userId)
 			.single();

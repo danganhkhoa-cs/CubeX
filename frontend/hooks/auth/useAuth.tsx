@@ -27,7 +27,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const response = await authService.getUserInfo()
       if (response.success) {
-        setUser(response.user)
+        setUser(response.user ?? null)
       } else {
         setUser(null)
       }

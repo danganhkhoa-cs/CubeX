@@ -60,6 +60,28 @@ interface FilterContextValue {
 
 const FilterContext = createContext<FilterContextValue | null>(null)
 
+function compareNameWithOtherLast(a: string, b: string) {
+  const aTrimmed = a.trim()
+  const bTrimmed = b.trim()
+  const aIsOther = aTrimmed.toLowerCase() === "other"
+  const bIsOther = bTrimmed.toLowerCase() === "other"
+
+  if (aIsOther && !bIsOther) return 1
+  if (!aIsOther && bIsOther) return -1
+
+  return aTrimmed.localeCompare(bTrimmed, undefined, {
+    sensitivity: "base",
+  })
+}
+
+function sortBrandsWithOtherLast(items: ProductBrand[]) {
+  return [...items].sort((a, b) => compareNameWithOtherLast(a.name, b.name))
+}
+
+function sortCategoriesWithOtherLast(items: ProductCategory[]) {
+  return [...items].sort((a, b) => compareNameWithOtherLast(a.name, b.name))
+}
+
 export function FilterProvider({ children }: { children: React.ReactNode }) {
   const [brands, setBrands] = useState<ProductBrand[]>([])
   const [categories, setCategories] = useState<ProductCategory[]>([])
@@ -80,8 +102,8 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
         productService.getSpecs(),
       ])
 
-      setBrands(brandList)
-      setCategories(categoryList)
+      setBrands(sortBrandsWithOtherLast(brandList))
+      setCategories(sortCategoriesWithOtherLast(categoryList))
       setSpecs(specList)
     } catch (requestError) {
       setBrands([])

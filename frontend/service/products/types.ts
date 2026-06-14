@@ -51,6 +51,7 @@ export interface ProductDetail extends Product {
 }
 
 export interface FilterProductsRequest {
+  title: string | null
   min_price: number | null
   max_price: number | null
   category_id: string | null
@@ -99,6 +100,11 @@ export interface CreateProductResponse {
 export interface UpdateProductResponse {
   success: boolean
   product: Product[]
+}
+
+export interface DeleteProductResponse {
+  success: boolean
+  message?: string
 }
 
 export interface ProductsPagination {

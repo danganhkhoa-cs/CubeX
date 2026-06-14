@@ -51,8 +51,10 @@ type ProductItem = {
 const buildFilterPayload = (filters: FilterState) => {
   const minPrice = filters.minPrice.trim()
   const maxPrice = filters.maxPrice.trim()
+  const title = filters.search.trim()
 
   return {
+    title: title || null,
     min_price: minPrice ? Number(minPrice) * 100 : null,
     max_price: maxPrice ? Number(maxPrice) * 100 : null,
     category_id: filters.categoryId || null,
@@ -248,17 +250,12 @@ const ProductsPage = () => {
           sellerId: sellerId || undefined,
           sortOrder: sortBy || undefined,
         })
-        const filteredItems = filters.search
-          ? response.products.filter((product) =>
-              product.title.toLowerCase().includes(filters.search.toLowerCase())
-            )
-          : response.products
         const visibleItems =
           sellerId !== user?.user_id
-            ? filteredItems.filter(
+            ? response.products.filter(
                 (product) => product.seller_id !== user?.user_id
               )
-            : filteredItems
+            : response.products
 
         if (mounted) {
           setProducts(visibleItems)

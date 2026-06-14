@@ -1,7 +1,7 @@
 import { Response, NextFunction } from "express";
 import { sendServerError } from "../utils/sendServerError";
 import { AuthRequest } from "../types/authrequest";
-import { supabase } from "../config/supabase";
+import { createSupabaseClient } from "../config/supabase";
 
 export async function requireAuth(
 	req: AuthRequest,
@@ -18,7 +18,7 @@ export async function requireAuth(
 			return;
 		}
 
-		const { data, error } = await supabase.auth.getUser(token);
+		const { data, error } = await createSupabaseClient().auth.getUser(token);
 		if (error) {
 			res.status(401).json({
 				success: false,
@@ -47,7 +47,7 @@ export async function optionalAuth(
 			return;
 		}
 
-		const { data, error } = await supabase.auth.getUser(token);
+		const { data, error } = await createSupabaseClient().auth.getUser(token);
 		if (error) {
 			res.status(401).json({
 				success: false,

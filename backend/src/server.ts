@@ -13,12 +13,31 @@ import { cartRouter } from "./routes/cartRoutes";
 
 const app = express();
 const PORT = process.env.PORT || 8000;
+const configuredOrigins = (process.env.FRONTEND_URL ?? "")
+	.split(",")
+	.map((origin) => origin.trim())
+	.filter(Boolean);
+const isDevelopment = process.env.NODE_ENV === "development";
 app.use(
 	cors({
-		origin:
-			process.env.NODE_ENV === "development"
-				? "http://localhost:3000"
-				: process.env.FRONTEND_URL,
+		origin: (origin, callback) => {
+			if (!origin) {
+				callback(null, true);
+				return;
+			}
+
+			if (isDevelopment && /^http:\/\/localhost:\d+$/.test(origin)) {
+				callback(null, true);
+				return;
+			}
+
+			if (configuredOrigins.includes(origin)) {
+				callback(null, true);
+				return;
+			}
+
+			callback(new Error(`Origin not allowed by CORS: ${origin}`));
+		},
 		credentials: true,
 		methods: ["GET", "POST", "PATCH", "DELETE"],
 	}),

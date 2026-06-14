@@ -59,9 +59,10 @@ export default async function Page() {
         <section className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-xl font-semibold">Featured cubes</h2>
+              <h2 className="text-xl font-semibold">Recently Added</h2>
               <p className="text-sm text-muted-foreground">
-                Curated drops from trusted sellers.
+                Need a new cube? Check out the latest listings from our
+                community.
               </p>
             </div>
             <Button variant="ghost" asChild>

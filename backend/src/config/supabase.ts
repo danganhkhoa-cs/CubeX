@@ -6,4 +6,13 @@ const supabaseKey = process.env.SUPABASE_KEY;
 if (!supabaseUrl || !supabaseKey) {
 	throw new Error("Missing Supabase environment variables");
 }
-export const supabase = createClient(supabaseUrl, supabaseKey);
+
+export function createSupabaseClient() {
+	return createClient(supabaseUrl, supabaseKey, {
+		auth: {
+			autoRefreshToken: false,
+			persistSession: false,
+			detectSessionInUrl: false,
+		},
+	});
+}
